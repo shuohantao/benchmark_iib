@@ -1,0 +1,38 @@
+data:
+  path: data/
+  dataset: mnist
+  batch_size: 64
+  num_workers: 4
+  num_samples: 10000
+  varying_shape: False
+  range:
+    - 32
+    - 32
+  targets:
+    - 0
+    - 1
+  mono: False 
+model:
+  name: coupling_ar
+  details:
+    coupling_ar:
+      shape: [1, 1, 16, 16]
+      depth_1: 4
+      depth_2: 4
+      depth_3: 8
+      n_iter: 50
+      modes: 16
+      fourier: False
+      normalize: False
+    multilevelDiff:
+      prior: FNO
+      module: FNO
+train:
+  epochs: 50
+  lr: 0.00001
+  save_freq: 10
+  test_freq: 10
+  save_path: tmp/runs/ckpt/
+  test_path: tmp/runs/test/
+  test_lowest_resolution: 16
+    
