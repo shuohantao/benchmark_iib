@@ -6,11 +6,10 @@ data:
   num_samples: 10000
   varying_shape: False
   range:
-    - 32
-    - 32
+    - 28
+    - 28
   targets:
     - 0
-    - 1
   mono: False 
 model:
   name: coupling_ar
@@ -23,10 +22,13 @@ model:
       n_iter: 50
       modes: 16
       fourier: False
-      normalize: False
+      normalize: True
     multilevelDiff:
-      prior: FNO
-      module: FNO
+      model_modes: 8
+      prior_modes_1: 14
+      prior_modes_2: 8
+      prior_scale: 1
+      width: 64
 train:
   epochs: 50
   lr: 0.00001
@@ -34,5 +36,5 @@ train:
   test_freq: 10
   save_path: tmp/runs/ckpt/
   test_path: tmp/runs/test/
-  test_lowest_resolution: 16
+  test_lowest_resolution: 28
     

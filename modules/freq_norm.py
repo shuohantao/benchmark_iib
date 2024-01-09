@@ -6,7 +6,8 @@ class FreqNorm(nn.Module):
         self.n_hid = n_hid
         self.scale = nn.Sequential(nn.Linear(1, n_hid), nn.ReLU(), nn.Linear(n_hid, 1), nn.ReLU())
         self.bias = nn.Sequential(nn.Linear(1, n_hid), nn.ELU(), nn.Linear(n_hid, 1))
-    def forward(self, x, freq, sample=False):
+    def forward(self, x, sample=False):
+        freq = torch.Tensor([x.shape[-1]]).to(x.device)
         ldj = self.scale(freq).sum() * torch.ones(x.shape[0], device=x.device)
         if not sample:
             x = x * self.scale(freq).exp()+ self.bias(freq)

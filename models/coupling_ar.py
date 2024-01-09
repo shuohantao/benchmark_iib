@@ -85,7 +85,7 @@ class CouplingFlowAR(nn.Module):
                 x = i[0]
                 sldj = 0
                 if self.freq_norm is not None:
-                    x, ldj = self.freq_norm(x, x.shape[-1])
+                    x, ldj = self.freq_norm(x)
                     sldj += ldj.sum()
                 for j in self.ar_flow:
                     if isinstance(j, ActNorm) or isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
@@ -127,7 +127,7 @@ class CouplingFlowAR(nn.Module):
                         else:
                             sub_img, _ = j(sub_img, sample=True, condition=con)
                     if self.freq_norm is not None:
-                        sub_img, _ = self.freq_norm(sub_img, sub_img.shape[-1], sample=True)
+                        sub_img, _ = self.freq_norm(sub_img, sample=True)
                     img = sub_img + con
                     con = _perform_dft(sub_img+con)
                     con = F.pad(con, (1, 1, 1, 1), 'constant', 0)

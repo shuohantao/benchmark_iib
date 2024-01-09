@@ -7,7 +7,6 @@ from numpy.linalg import svd
 from .fno import *
 import warnings
 
-
 class Prior(nn.Module):
     def __init__(self):
         super(Prior, self).__init__()
@@ -62,9 +61,6 @@ class FNOprior(Prior):
         self.scale = scale
         self.conv = SpectralConv2d(1,1,k1,k2, rand = False).to(device)
 
-    def __repr__(self):
-        return "FNOprior(k1=%d, k2=%d)" %(self.k1,self.k2)
-
     def sample(self,shape_vec):
         # Generate white-noise latent
         xhat = torch.randn(shape_vec[0],1,shape_vec[2],shape_vec[3]).to(device)
@@ -76,9 +72,6 @@ class FNOprior(Prior):
 
     def Q_g2_s(self, g,a): 
         return g*a #Qmv(g*a)
-    
-
-
 
 class ImplicitConv(Prior):
     """

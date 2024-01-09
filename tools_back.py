@@ -10,7 +10,6 @@ from tqdm import tqdm
 import os
 import torch
 from utils.sample_grid import sample_grid
-import torch
 import matplotlib.pyplot as plt
 
 class ConfigManager:
@@ -37,14 +36,9 @@ class ConfigManager:
 class Trainer:
     def __init__(self, config_manager) -> None:
         self.cm = config_manager
+        self.model = config_manager.get_model().to('cuda')
     def train(self):
-
-        def print_reserved_memory():
-            reserved_memory = torch.cuda.memory_reserved()
-            print(f"Reserved memory: {reserved_memory} bytes")
-
-        print_reserved_memory()
-        self.model = self.cm.get_model().to('cuda')
+        print(type(self.model))
         epochs = self.cm.config['train']['epochs']
         lr = self.cm.config['train']['lr']
         save_freq = self.cm.config['train']['save_freq']
@@ -62,32 +56,21 @@ class Trainer:
             for k, j in enumerate(batches):
                 j = j[0].to('cuda')
                 loss = self.model(j)
+                print(loss)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                nom_loss, unit = self.format_loss(loss, j)
-                avg_loss += nom_loss/len(batches)
-                batches.set_description(f"Epoch {i}, Batch {k}, Loss: {nom_loss} {unit}")
-            epochs.set_description(f"Epoch {i}, Avg_loss: {avg_loss} {unit}, Last_batch_loss: {nom_loss} {unit}")
+                avg_loss += loss.item()/len(batches)*log2(exp(1)) / (np.prod(j.shape[-2:]) * len(j))
+                batches.set_description(f"Epoch {i}, Batch {k}, Loss: {loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * len(j))}")
+            epochs.set_description(f"Epoch {i}, Avg_loss: {avg_loss}, Last_batch_loss: {loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * len(j))}")
             loss_curve.append(avg_loss)
             if i % save_freq == 0:
-                torch.save(self.model.state_dict(), save_path+f"{self.cm.config['model']['name']}_epoch_{i}.pth")
+                torch.save(self.model.state_dict(), save_path+f"epoch_{i}.pth")
             if i % test_freq == 0:
-                sample_grid(self.model, test_lowest, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
-            plt.clf()  # Clear the figure
-            plt.plot(loss_curve)
-            plt.yscale('symlog')
-            plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
-    
-    def format_loss(self, loss, j):
-        if self.cm.config['model']['name'] == "coupling_ar":
-            nom_loss = loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * j.shape[0])
-            unit = "bits/dim"
-        if self.cm.config['model']['name'] == "multilevelDiff":
-            nom_loss = loss.item() / (np.prod(j.shape[-2:]) * j.shape[0])
-            unit = ""
-        return nom_loss, unit
-
+                sample_grid(self.model, test_lowest, test_path+f"epoch_{i}.png")
+        plt.plot(loss_curve)
+        plt.savefig(save_path+f"{self.cm.config['model']['name']}loss_curve.png")
+        
     def load_dataset(self):
         path = self.cm.config['data']['path'] + self.cm.config['data']['dataset']
         args = self.cm.config['data'].copy()
