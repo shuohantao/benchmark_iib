@@ -9,8 +9,8 @@ class ActNorm(nn.Module):
         self.log_scale = nn.Parameter(torch.zeros(1, n_channels, 1, 1))
         self.is_initialized = False
 
-    def forward(self, z, move_towards_base=True):
-        if move_towards_base:
+    def forward(self, z, sample=False):
+        if not sample:
             if not self.is_initialized:
                 self._initialize(z)
             z = torch.exp(self.log_scale) * z + self.shift
@@ -19,7 +19,7 @@ class ActNorm(nn.Module):
             z = (z - self.shift) / torch.exp(self.log_scale)
 
         ldj = self._get_log_determinant_jacobian(z)
-        return z, ldj if move_towards_base else -ldj
+        return z, ldj if not sample else -ldj
 
     def _get_log_determinant_jacobian(self, z):
         h, w = z.shape[-2:]

@@ -1,7 +1,7 @@
 data:
   path: data/
   dataset: mnist
-  batch_size: 64
+  batch_size: 256
   num_workers: 4
   num_samples: 10000
   varying_shape: False
@@ -10,9 +10,18 @@ data:
     - 28
   targets:
     - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   mono: False 
 model:
-  name: coupling_ar
+  name: res_sno
   details:
     coupling_ar:
       shape: [1, 1, 16, 16]
@@ -22,19 +31,46 @@ model:
       n_iter: 50
       modes: 16
       fourier: False
-      normalize: True
+      normalize: False
     multilevelDiff:
       model_modes: 8
       prior_modes_1: 14
       prior_modes_2: 8
       prior_scale: 1
       width: 64
+    gano:
+      d_co_domain: 20 
+      modes_schedule: [12, 8, 4, 2]
+      npad: 2
+      n_critic: 5
+      default_res: 28
+      lambda_grad: 10
+      alpha: 1.5
+      tau: 1
+    res_sno:
+      n_layers: 10
+      dim_hidden: 32
+      depth: 3
+      k_max: 5
+      n_fourier_coeffs: null
+      coeff: 0.98
+      n_ldj_iter: null
+      n_exact_terms: 2
+      n_fixed_iter: 50
+      use_unbiased: False
+      n_spectral_iter: 20
+      type: standard
+      ls: 0.1
+      vars: 1
+      eps: 0.001
 train:
-  epochs: 50
-  lr: 0.00001
+  epochs: 20
+  lr: 0.001
+  lr_d: 0.001
   save_freq: 10
   test_freq: 10
   save_path: tmp/runs/ckpt/
   test_path: tmp/runs/test/
   test_lowest_resolution: 28
+
     

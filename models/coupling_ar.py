@@ -9,17 +9,12 @@ from modules.split import SplitFlow
 from modules.coupling import CouplingLayerScaleInv
 from modules.dequantization import Dequantization
 from modules.conv import InvConv2d
-from modules.free_net import CNN_Linear, NeuropCNNConditioned, NeuropCNN
+from modules.free_net import CNN_Linear, NeuropCNN
 from modules.filters import frequency_seg
 from modules.filters import _perform_dft, _perform_idft
 from modules.act_norm import ActNorm
 from modules.partitions import checkerBoard
 from modules.freq_norm import FreqNorm
-class HelperManager():
-    def __init__(self, n_iter):
-        self.n_iter = n_iter
-    def get_config(self):
-        return {'n_spectral_iter':self.n_iter}
 class CouplingFlowAR(nn.Module):
     def __init__(self, shape, depth_1=4, depth_2=4, depth_3=8, n_iter = 50, modes = 16, prior=Normal(0, 1), fourier=False, normalize=False):
         super().__init__()
@@ -30,7 +25,6 @@ class CouplingFlowAR(nn.Module):
         ####################################################
         self.dummy_squeeze = SqueezeFlow()
         self.shape = torch.Size(shape)
-        self.n_iter_m = HelperManager(n_iter=n_iter)
         self.modes = modes
         self.ar_flow = nn.ModuleList()
         for i in range(2):
@@ -104,10 +98,7 @@ class CouplingFlowAR(nn.Module):
         with torch.no_grad():
             z = self.prior.sample(torch.Size([num_samples]+[self.shape[-3]*8, prior_shape//4, prior_shape//4])).to(device)
             for i in reversed(self.flow[1:]):
-                if isinstance(i, ActNorm):
-                    z, _ = i(z, move_towards_base=False)
-                else:
-                    z, _ = i(z, sample=True)
+                z, _ = i(z, sample=True)
             img = z
             if self.modes < resolution:
                 con = _perform_dft(img)
@@ -118,9 +109,7 @@ class CouplingFlowAR(nn.Module):
                     prior_shape = torch.Size([num_samples, 2, con.shape[-2], con.shape[-1]])
                     sub_img = self.prior.sample(prior_shape).to(device)
                     for j in reversed(self.ar_flow):
-                        if isinstance(j, ActNorm):
-                            sub_img, _ = j(sub_img, move_towards_base=False)
-                        elif isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
+                        if isinstance(j, ActNorm) or isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
                             sub_img, _ = j(sub_img, sample=True)
                             if isinstance(j, SqueezeFlow):
                                 con, _ = self.dummy_squeeze(con, sample=True)

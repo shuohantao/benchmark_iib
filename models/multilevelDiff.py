@@ -21,7 +21,6 @@ class MultilevelDiff(nn.Module):
         sde = self.rev_sde
         delta = sde.T / num_steps
    
-        samples = torch.empty(0, device = device)
         for l in tqdm(range(100)):
             y0 = sde.prior.sample([num_samples, input_channels, resolution, resolution])
             ts = torch.linspace(0, 1, num_steps + 1).to(y0) * sde.T
@@ -33,38 +32,8 @@ class MultilevelDiff(nn.Module):
                     sigma = sde.sigma(ones * ts[i], y0, lmbd = 0.)
                     epsilon = sde.prior.sample(y0.shape)
                     y0 = y0 + delta * mu + (delta ** 0.5) * sigma * epsilon
-                
-            samples = torch.cat((samples, y0),0)
-        return samples
-    # def choose_prior(self, string):
-    #     if string.lower() == "fno":
-    #         return FNOprior(k1=28,k2=args.modes)
-    #     elif string.lower() == "standard":
-    #         return StandardNormal()
-    #     elif string.lower() == "lap_conv":
-    #         K = torch.zeros(3,3)
-    #         hx = 1.0/args.input_height
-    #         hy = 1.0/args.input_height
-    #         K[1,1] = 2.0/(hx**2) + 2.0/(hy**2)
-    #         K[0,1] = -1.0/(hy**2)
-    #         K[1,0] = -1.0/(hx**2)
-    #         K[2,1] = -1.0/(hy**2)
-    #         K[1,2] = -1.0/(hx**2)
+        return y0
 
-    #         return ImplicitConv(K,scale=10)
-    #     elif string.lower() == "combined_conv":
-    #         K = torch.zeros(3,3)
-    #         hx = 1.0/args.input_height
-    #         hy = 1.0/args.input_height
-    #         K[1,1] = 2.0/(hx**2) + 2.0/(hy**2)
-    #         K[0,1] = -1.0/(hy**2)
-    #         K[1,0] = -1.0/(hx**2)
-    #         K[2,1] = -1.0/(hy**2)
-    #         K[1,2] = -1.0/(hx**2)
-
-    #         return CombinedConv(K,k1=args.modes,k2=args.modes,scale=10)
-    #     else:
-    #         raise argparse.ArgumentTypeError(f"Invalid class")
 class VariancePreservingSDE(torch.nn.Module):
     """
     Implementation of the variance preserving SDE proposed by Song et al. 2021
