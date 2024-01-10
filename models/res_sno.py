@@ -1,3 +1,4 @@
+#modified from https://github.com/bunkerj/normalizing-flows
 import torch
 import torch.nn as nn
 from modules.dequantization import Dequantization

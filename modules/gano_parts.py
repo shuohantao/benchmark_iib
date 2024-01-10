@@ -1,3 +1,4 @@
+#modified from https://github.com/neuraloperator/GANO
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

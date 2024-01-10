@@ -1,4 +1,4 @@
-# Main dependencies
+#modified from https://github.com/neuraloperator/GANO
 import numpy
 import scipy.fftpack
 import numpy as np

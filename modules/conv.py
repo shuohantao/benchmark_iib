@@ -1,3 +1,4 @@
+#modified from https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/DL2/Advanced_Generative_Models/Normalizing_flows/advancednormflow.html
 import torch.nn as nn
 import torch
 from torch import nn
@@ -16,7 +17,6 @@ class InvConv2d(nn.Module):
     def forward(self, input, sample=False):
         _, _, height, width = input.shape
 
-        # You can also use torch.slogdet(self.weight)[1] to summarize the operations below\n",
         logdet = (
             height * width * torch.log(torch.abs(torch.det(self.weight.squeeze())))
         )

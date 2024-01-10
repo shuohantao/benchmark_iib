@@ -1,3 +1,4 @@
+#code from https://github.com/bunkerj/normalizing-flows
 import torch
 import torch.nn as nn
 from utils.ldj import get_ldj

@@ -1,3 +1,4 @@
+#modified from https://github.com/neuraloperator/GANO
 import torch.nn as nn
 import torch
 from modules.gano_parts import *
