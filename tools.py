@@ -12,6 +12,7 @@ from tqdm import tqdm
 import os
 import torch
 from utils.sample_grid import sample_grid
+from utils.load import load_model
 import torch
 import matplotlib.pyplot as plt
 
@@ -33,6 +34,8 @@ class ConfigManager:
         except:
             raise Exception('Invalid model choice')
         model = constructor(**self.config['model']['details'][self.config['model']['name']])
+        if self.config['train']['load_path'] is not None:
+            model = load_model(model, self.config['train']['load_path'])
         return model
     def get_data(self):
         assert self.config['data']['dataset'] in self.dataset_choices, "Invalid dataset choice"
@@ -80,10 +83,10 @@ class Trainer:
                     torch.save(self.model.state_dict(), save_path+f"{self.cm.config['model']['name']}_epoch_{i}.pth")
                 if i % test_freq == 0:
                     sample_grid(self.model, test_lowest, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
-                plt.clf()  # Clear the figure
-                plt.plot(loss_curve)
-                plt.yscale('symlog')
-                plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
+            plt.clf()  # Clear the figure
+            plt.plot(loss_curve)
+            plt.yscale('symlog')
+            plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
         else:
             self.train_gano()
     def train_gano(self):

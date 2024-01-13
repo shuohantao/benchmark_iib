@@ -4,6 +4,8 @@ from torchvision import datasets
 from torchvision.datasets import CIFAR10
 import torch
 import numpy as np
+from models.coupling_ar import CouplingFlowAR
+from modules.act_norm import ActNorm
 class _Collate_fn(object):
     def __init__(self, range):
         self.range = [i//4 for i in range]
@@ -100,3 +102,14 @@ def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", v
         train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
         test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     return train_loader, test_loader
+
+def load_model(model, path):
+    model.load_state_dict(torch.load(path))
+    if isinstance(model, CouplingFlowAR):
+        for i in model.flow:
+            if isinstance(i, ActNorm):
+                i.is_initialized = True
+        for i in model.ar_flow:
+            if isinstance(i, ActNorm):
+                i.is_initialized = True
+    return model

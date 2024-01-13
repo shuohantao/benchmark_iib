@@ -109,7 +109,7 @@ class FCL(nn.Module):
         return s, t
 
 class NeuropCNN(nn.Module):
-    def __init__(self, device=torch.device('cuda'), c_in = 1, c_hidden = 64, c_out = -1, default_shape = 28, linear=True, kernel_shapes = [3]*3, residual=None, transformer=False, mode="interpolate", fourier=False):
+    def __init__(self, device=torch.device('cuda'), c_in = 1, c_hidden = 64, c_out = -1, default_shape = 28, linear=True, kernel_shapes = [3]*3, residual=None, mode="interpolate", fourier=False):
         super().__init__()
         default_shape = torch.Size([64, 1, default_shape, default_shape])
         self.default_x = default_shape[-1]
@@ -118,7 +118,6 @@ class NeuropCNN(nn.Module):
         self.device = device
         self.linear_dim = np.prod(default_shape[-2:])
         self.linear = linear
-        self.transformer = transformer
         assert mode in ["interpolate", "extrapolate"], "mode must be either interpolate or extrapolate"
         self.mode = mode
         c_out = c_out if c_out > 0 else 2 if c_in == 1 else 2 * (c_in - 1)
@@ -142,9 +141,6 @@ class NeuropCNN(nn.Module):
                 nn.Linear(self.linear_dim*c_out//4, self.linear_dim*c_out//4),
                 nn.Softplus(),
                 nn.Linear(self.linear_dim*c_out//4, self.linear_dim*c_out),)
-        if transformer:
-            base_dim = int(self.linear_dim**0.5) + int(self.linear_dim**0.5)%2
-            self.tfm = NeurOpKrnTfm(default_shape[1]*base_dim**2//2, default_shape[1]*base_dim**2//2, nhead=1, nhid=2048)
     def _get_params(self, shape, mode="inteprolate"):
         
         ratio = shape[-1]/self.default_x
@@ -195,23 +191,6 @@ class NeuropCNN(nn.Module):
                 x = F.adaptive_avg_pool2d(x, tuple(shape[-2:]))
             else:
                 x = self.fcl(x).view(-1, 2*shape[1], int(self.linear_dim**0.5), int(self.linear_dim**0.5))
-        if self.transformer:
-            base_dim = int(self.linear_dim**0.5) + int(self.linear_dim**0.5)%2
-            print(base_dim, x.shape)
-            if np.prod(x.shape[-2:]) > self.linear_dim:
-                x = F.adaptive_avg_pool2d(x, (base_dim, )*2)
-                x = x.reshape(-1, 2*shape[1], base_dim//2, 2, base_dim//2, 2).permute(2, 3, 4, 0, 1, 5).reshape(4, -1, np.prod(x.shape[-3:])//4)
-                x = self.tfm(x).reshape(base_dim//2, 2, base_dim//2, 2, -1, 2*shape[1]).permute(4, 5, 0, 2, 1, 3).reshape(-1, 2*shape[1], base_dim, base_dim)
-                x = F.interpolate(x, size=tuple(shape[-2:]), mode='bilinear', align_corners=False)
-            elif np.prod(x.shape[-2:]) < self.linear_dim:
-                x = F.interpolate(x, size=(base_dim, )*2, mode='bilinear', align_corners=False)
-                x = x.reshape(-1, 2*shape[1], base_dim//2, 2, base_dim//2, 2).permute(2, 3, 4, 0, 1, 5).reshape(4, -1, np.prod(x.shape[-3:])//4)
-                x = self.tfm(x).reshape(base_dim//2, 2, base_dim//2, 2, -1, 2*shape[1]).permute(4, 5, 0, 2, 1, 3).reshape(-1, 2*shape[1], base_dim, base_dim)
-                x = F.adaptive_avg_pool2d(x, tuple(shape[-2:]))
-            else:
-                x = x.reshape(-1, 2*shape[1], base_dim//2, 2, base_dim//2, 2).permute(2, 3, 4, 0, 1, 5).reshape(4, -1, np.prod(x.shape[-3:])//4)
-                print(x.shape)
-                x = self.tfm(x).reshape(base_dim//2, 2, base_dim//2, 2, -1, 2*shape[1]).permute(4, 5, 0, 2, 1, 3).reshape(-1, 2*shape[1], base_dim, base_dim)
         return x
 
 class NeuropCNNTransformer(nn.Module):

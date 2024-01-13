@@ -8,15 +8,14 @@ from tqdm import tqdm
 # huang sde code
 device = 'cuda'
 class MultilevelDiff(nn.Module):
-    def __init__(self, model_modes, prior_modes_1, prior_modes_2, prior_scale, width, **kwargs):
+    def __init__(self, prior_modes_1, prior_modes_2, prior_scale, width, **kwargs):
         super().__init__()
         self.prior = FNOprior(k1=prior_modes_1,k2=prior_modes_2, scale=prior_scale)
         self.fwd_sde = VariancePreservingSDE(self.prior, alpha_min=0.1, alpha_max=20.0, T=1. )
-        self.model = FNO2d(model_modes, model_modes, width)
-        self.rev_sde = PluginReverseSDE(FNOprior(k1=prior_modes_1,k2=prior_modes_2, scale=prior_scale), self.fwd_sde, self.model, 1., vtype='Rademacher', debias=False).to(device)
-        self.pool = torch.nn.AvgPool2d(2)
+        self.model = FNO2d(prior_modes_2, prior_modes_2, width)
+        self.rev_sde = PluginReverseSDE(self.prior, self.fwd_sde, self.model, 1., vtype='Rademacher', debias=False).to(device)
     def forward(self, x):
-        loss = self.rev_sde.dsm(self.pool(x)).mean()
+        loss = self.rev_sde.dsm(x).mean()
         return loss
     def sample(self, resolution, num_samples=1, device="cuda", input_channels=1, num_steps=200, **kwargs):
         sde = self.rev_sde

@@ -36,3 +36,22 @@ class Dequantization(nn.Module):
             ldj -= np.prod(x.shape[1:]) * np.log(1 - self.epsilon)
             x = (x - 0.5 * self.epsilon) / (1 - self.epsilon)
         return x, ldj
+class VarDequantization(Dequantization):
+    def __init__(self, flow, quants=256, epsilon=1e-5):
+        super().__init__(quants, epsilon)
+        self.flow = nn.ModuleList(flow)
+    def dequant(self, x):
+        x = x.float()
+        condition = x / self.quants
+        noise = torch.rand_like(x).detach()
+        noise, sldj = self.sigmoid(noise, sample=False)
+        for f in self.flow:
+            noise, ldj = f(noise, condition=condition, sample=False)
+            sldj += ldj
+        noise, ldj = self.sigmoid(noise, sample=True)
+        sldj += ldj
+        x = (x + noise) / self.quants
+        sldj -= np.log(self.quants) * np.prod(x.shape[1:])
+        return x, sldj
+
+
