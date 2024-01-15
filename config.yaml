@@ -21,9 +21,17 @@ data:
     - 9
   mono: False 
 model:
-  name: coupling_ar
+  name: res_sno
   details:
     coupling_ar:
+      shape: [1, 1, 16, 16]
+      depth_1: 4
+      depth_2: 4
+      depth_3: 8
+      modes: 16
+      fourier: True
+      normalize: False
+    coupling_ar_m:
       shape: [1, 1, 16, 16]
       depth_1: 4
       depth_2: 4
@@ -46,10 +54,10 @@ model:
       alpha: 1.5
       tau: 1
     res_sno:
-      n_layers: 10
-      dim_hidden: 32
+      n_layers: 64
+      dim_hidden: 512
       depth: 3
-      k_max: 5
+      k_max: 7
       n_fourier_coeffs: null
       coeff: 0.98
       n_ldj_iter: null
@@ -62,12 +70,12 @@ model:
       vars: 1
       eps: 0.001
 train:
-  epochs: 50
-  lr: 0.00001
+  epochs: 30
+  lr: 0.0001
   lr_d: 0.00001
-  save_freq: 1
-  test_freq: 1
+  save_freq: 5
+  test_freq: 5
   save_path: tmp/runs/ckpt/
   test_path: tmp/runs/test/
   test_lowest_resolution: 28
-  load_path: tmp/runs/ckpt/coupling_ar_epoch_99.pth
+  load_path: null

@@ -58,7 +58,10 @@ class ResSNO(nn.Module):
         flow_trajectory = []
         flows = self.flows if not sample else reversed(self.flows)
         for i, flow in enumerate(flows):
-            z, ldj = flow(z, sample=sample)
+            if isinstance(flow, ActNorm):
+                z, ldj = flow(z, move_towards_base=not sample)
+            else:
+                z, ldj = flow(z, sample=sample)
             if not sample:
                 ldj_sum += ldj
             if flow_trajectory_interval is not None and i % flow_trajectory_interval == 0:

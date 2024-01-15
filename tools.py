@@ -2,6 +2,7 @@ import yaml
 import torch.nn as nn
 import torchvision.utils as utils
 from models.coupling_ar import CouplingFlowAR
+from models.coupling_ar_mod import CouplingFlowARMod
 import torchvision.transforms.functional as F
 from models.multilevelDiff import MultilevelDiff
 from models.res_sno import ResSNO
@@ -25,7 +26,8 @@ class ConfigManager:
         self.model_choices = {'coupling_ar':CouplingFlowAR, 
                               'multilevelDiff':MultilevelDiff,
                               "gano":Gano,
-                              "res_sno":ResSNO}
+                              "res_sno":ResSNO,
+                              "coupling_ar_m":CouplingFlowARMod}
         self.dataset = None
         self.dataset_choices = {'mnist':load_mnist, 'cifar10':load_cifar, 'neurop_32':None}
     def get_model(self):
@@ -53,6 +55,8 @@ class Trainer:
 
         print_reserved_memory()
         self.model = self.cm.get_model().to('cuda')
+        total_params = sum(p.numel() for p in self.model.parameters())
+        print(f"Total number of parameters: {total_params}")
         if self.cm.config['model']['name'] != "gano":
             epochs = self.cm.config['train']['epochs']
             lr = self.cm.config['train']['lr']
@@ -154,7 +158,7 @@ class Trainer:
             plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
             
     def format_loss(self, loss, j):
-        if self.cm.config['model']['name'] in ["coupling_ar", "res_sno"]:
+        if self.cm.config['model']['name'] in ["coupling_ar", "res_sno", "coupling_ar_m"]:
             nom_loss = loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * j.shape[0])
             unit = "bits/dim"
         if self.cm.config['model']['name'] == "multilevelDiff":
