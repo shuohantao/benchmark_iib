@@ -1,12 +1,7 @@
 import yaml
 import torch.nn as nn
 import torchvision.utils as utils
-from models.coupling_ar import CouplingFlowAR
-from models.coupling_ar_mod import CouplingFlowARMod
-import torchvision.transforms.functional as F
-from models.multilevelDiff import MultilevelDiff
-from models.res_sno import ResSNO
-from models.gano import Gano
+from models import *
 from utils.load import *
 from math import log2, exp, log
 from tqdm import tqdm
@@ -23,18 +18,13 @@ class ConfigManager:
         self.config = None
         with open(self.filepath, 'r') as file:
             self.config = yaml.safe_load(file)
-        self.model_choices = {'coupling_ar':CouplingFlowAR, 
-                              'multilevelDiff':MultilevelDiff,
-                              "gano":Gano,
-                              "res_sno":ResSNO,
-                              "coupling_ar_m":CouplingFlowARMod}
         self.dataset = None
         self.dataset_choices = {'mnist':load_mnist, 'cifar10':load_cifar, 'neurop_32':None}
     def get_model(self):
-        try:
-            constructor = self.model_choices[self.config['model']['name']]
-        except:
-            raise Exception('Invalid model choice')
+    # try:
+        constructor = eval(self.config['model']['name'])
+        # except:
+        #     raise Exception('Invalid model choice')
         model = constructor(**self.config['model']['details'][self.config['model']['name']])
         if self.config['train']['load_path'] is not None:
             model = load_model(model, self.config['train']['load_path'])
@@ -47,6 +37,7 @@ class ConfigManager:
 class Trainer:
     def __init__(self, config_manager) -> None:
         self.cm = config_manager
+        self.is_gan = self.cm.config['model']['is_gan']
     def train(self):
 
         def print_reserved_memory():
@@ -57,46 +48,8 @@ class Trainer:
         self.model = self.cm.get_model().to('cuda')
         total_params = sum(p.numel() for p in self.model.parameters())
         print(f"Total number of parameters: {total_params}")
-        if self.cm.config['model']['name'] != "gano":
-            epochs = self.cm.config['train']['epochs']
-            lr = self.cm.config['train']['lr']
-            save_freq = self.cm.config['train']['save_freq']
-            test_freq = self.cm.config['train']['test_freq']
-            save_path = self.cm.config['train']['save_path']
-            test_path = self.cm.config['train']['test_path']
-            train_set, test_set = self.load_dataset()
-            test_lowest = self.cm.config['train']['test_lowest_resolution']
-            epochs = tqdm(range(epochs), position=0)
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-            loss_curve = []
-            for i in epochs:
-                avg_loss = 0
-                batches = tqdm(train_set, position=1, leave=False)
-                for k, j in enumerate(batches):
-                    j = j[0].to('cuda')
-                    loss = self.model(j)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    nom_loss, unit = self.format_loss(loss, j)
-                    avg_loss += nom_loss/len(batches)
-                    batches.set_description(f"Epoch {i}, Batch {k}, Loss: {nom_loss} {unit}")
-                epochs.set_description(f"Epoch {i}, Avg_loss: {avg_loss} {unit}, Last_batch_loss: {nom_loss} {unit}")
-                loss_curve.append(avg_loss)
-                if i % save_freq == 0:
-                    torch.save(self.model.state_dict(), save_path+f"{self.cm.config['model']['name']}_epoch_{i}.pth")
-                if i % test_freq == 0:
-                    sample_grid(self.model, test_lowest, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
-            plt.clf()  # Clear the figure
-            plt.plot(loss_curve)
-            plt.yscale('symlog')
-            plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
-        else:
-            self.train_gano()
-    def train_gano(self):
         epochs = self.cm.config['train']['epochs']
         lr = self.cm.config['train']['lr']
-        lr_d = self.cm.config['train']['lr_d']
         save_freq = self.cm.config['train']['save_freq']
         test_freq = self.cm.config['train']['test_freq']
         save_path = self.cm.config['train']['save_path']
@@ -104,64 +57,78 @@ class Trainer:
         train_set, test_set = self.load_dataset()
         test_lowest = self.cm.config['train']['test_lowest_resolution']
         epochs = tqdm(range(epochs), position=0)
-        G_optim = torch.optim.Adam(self.model.G.parameters(), lr=lr)
-        D_optim = torch.optim.Adam(self.model.D.parameters(), lr=lr_d)
-        loss_curve_G = []
-        loss_curve_D = []
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        if self.is_gan:
+            loss_curve_G = []
+            loss_curve_D = []   
+        else:
+            loss_curve = []
         for i in epochs:
+            if self.is_gan:
+                avg_loss_G = 0
+                avg_loss_D = 0
+                loss_G = 0
+                loss_D = 0
+            else:
+                avg_loss = 0
             batches = tqdm(train_set, position=1, leave=False)
-            avg_loss_D = 0.0
-            avg_loss_G = 0.0
-            loss_G = 0.0
-            loss_D = 0.0
             for k, j in enumerate(batches):
                 j = j[0].to('cuda')
-                D_optim.zero_grad()
-                x_syn=self.model.grf.sample(j.shape[0]).unsqueeze(-1).permute(0, 3, 1, 2).to('cuda')
-                x_syn = self.model.G(x_syn)
-
-                W_loss = -torch.mean(self.model.D(j)) + torch.mean(self.model.D(x_syn.detach()))
-
-                gradient_penalty = self.model.calculate_gradient_penalty(self.model.D, j.data, x_syn.data, device='cuda')
-
-                loss_D = W_loss + self.model.lambda_grad * gradient_penalty
-                loss_D.backward()
-
-                avg_loss_D += loss_D.item()
-
-                D_optim.step()
-                
-                # Train G
-                if (k + 1) % self.model.n_critic == 0:
-                    G_optim.zero_grad()
-
-                    x_syn = self.model.G(self.model.grf.sample(j.shape[0]).to('cuda').unsqueeze(-1).permute(0, 3, 1, 2))
-
-                    loss_G = -torch.mean(self.model.D(x_syn))
-                    loss_G.backward()
-                    avg_loss_G += loss_G.item()
-
-                    G_optim.step()
-                batches.set_description(f"Epoch {i}, Batch {k}, Generator Loss: {loss_G}; Discriminator Loss: {loss_D}")
-            epochs.set_description(f"Epoch {i}, Avg generator | discriminator loss: {avg_loss_G} | {avg_loss_D}, Last_batch_loss: {loss_G} | {loss_D}")
-            loss_curve_G.append(avg_loss_G / len(batches))
-            loss_curve_D.append(avg_loss_D / len(batches))
+                if not self.is_gan:
+                    loss = self.model(j)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    nom_loss, unit = self.format_loss(loss, j)
+                    avg_loss += nom_loss/len(batches)
+                    batches.set_description(f"Epoch {i}, Batch {k}, Loss: {nom_loss} {unit}")
+                else:
+                    lG, lD = self.model(j)
+                    optimizer.zero_grad()
+                    if lG is None:
+                        lD.backward()
+                        loss_D = lD.item()
+                        lG = torch.tensor(0.0)
+                    else:
+                        lG.backward()
+                        loss_G = lG.item()
+                        lD = torch.tensor(0.0)
+                    optimizer.step()
+                    avg_loss_D += lD.item()/(len(batches)//self.model.n_critic)
+                    avg_loss_G += lG.item()/(len(batches)-len(batches)//self.model.n_critic)
+                    batches.set_description(f"Epoch {i}, Batch {k}, Loss: G {loss_G}, D {loss_D}")
+            if self.is_gan:
+                epochs.set_description(f"Epoch {i}, Avg_loss: G {avg_loss_G}, D {avg_loss_D}; Last_batch_loss: G {loss_G}, D {loss_D}")
+                loss_curve_G.append(avg_loss_G)
+                loss_curve_D.append(avg_loss_D)
+            else:
+                epochs.set_description(f"Epoch {i}, Avg_loss: {avg_loss} {unit}, Last_batch_loss: {nom_loss} {unit}")
+                loss_curve.append(avg_loss)
             if i % save_freq == 0:
-                torch.save(self.model.state_dict(), save_path+f"{self.cm.config['model']['name']}_epoch_{i}.pth")
+                if self.cm.config['train']['save_name'] == None:
+                    torch.save(self.model.state_dict(), save_path+f"{self.cm.config['model']['name']}_epoch_{i}.pth")
+                else:
+                    torch.save(self.model.state_dict(), save_path+f"{self.cm.config['train']['save_name']}_epoch_{i}.pth")
             if i % test_freq == 0:
                 sample_grid(self.model, test_lowest, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
-            plt.clf()  # Clear the figure
+        if self.is_gan:
+            plt.clf()
             plt.plot(loss_curve_G, label="Generator")
             plt.plot(loss_curve_D, label="Discriminator")
+            plt.yscale('symlog')
             plt.legend()
+            plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
+        else:
+            plt.clf()  # Clear the figure
+            plt.plot(loss_curve)
             plt.yscale('symlog')
             plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
             
     def format_loss(self, loss, j):
-        if self.cm.config['model']['name'] in ["coupling_ar", "res_sno", "coupling_ar_m"]:
+        if self.cm.config['model']['loss_unit'] == "bpd":
             nom_loss = loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * j.shape[0])
-            unit = "bits/dim"
-        if self.cm.config['model']['name'] == "multilevelDiff":
+            unit = "bpd"
+        else:
             nom_loss = loss.item() / (np.prod(j.shape[-2:]) * j.shape[0])
             unit = ""
         return nom_loss, unit

@@ -4,10 +4,8 @@ data:
   batch_size: 64
   num_workers: 4
   num_samples: 10000
-  varying_shape: False
-  range:
-    - 28
-    - 28
+  varying_shape: True
+  shape_setting: [[28, 0.9], [64, 0.1]]
   targets:
     - 0
     - 1
@@ -19,11 +17,18 @@ data:
     - 7
     - 8
     - 9
-  mono: False 
+  mono: True
 model:
-  name: res_sno
+  name: CouplingFlowAR
+  loss_unit: bpd
+  is_gan: False # if True, return tuple loss in forward pass, 
+                # first element being generator loss, second element discriminator loss,
+                # wrap both generator and discriminator in a single class,
+                # set generator training frequency internally,
+                # train either generator or discriminator in a single forward pass,
+                # loss for part that's not trained needs to be None
   details:
-    coupling_ar:
+    CouplingFlowAR:
       shape: [1, 1, 16, 16]
       depth_1: 4
       depth_2: 4
@@ -31,7 +36,7 @@ model:
       modes: 16
       fourier: True
       normalize: False
-    coupling_ar_m:
+    CouplingFlowARMod:
       shape: [1, 1, 16, 16]
       depth_1: 4
       depth_2: 4
@@ -39,12 +44,12 @@ model:
       modes: 16
       fourier: True
       normalize: False
-    multilevelDiff:
+    MultilevelDiff:
       prior_modes_1: 28
       prior_modes_2: 14
       prior_scale: 1
       width: 64
-    gano:
+    Gano:
       d_co_domain: 20 
       modes_schedule: [12, 8, 4, 2]
       npad: 2
@@ -53,7 +58,7 @@ model:
       lambda_grad: 10
       alpha: 1.5
       tau: 1
-    res_sno:
+    ResSNO:
       n_layers: 64
       dim_hidden: 512
       depth: 3
@@ -71,7 +76,7 @@ model:
       eps: 0.001
 train:
   epochs: 30
-  lr: 0.0001
+  lr: 0.00001
   lr_d: 0.00001
   save_freq: 5
   test_freq: 5
@@ -79,3 +84,9 @@ train:
   test_path: tmp/runs/test/
   test_lowest_resolution: 28
   load_path: null
+  save_name: CouplingFlowAR_10
+MMD_test:
+  resolutions: [28, 32]
+  test_model: CouplingFlowAR
+  model_pth: tmp/runs/saved_ckpt/coupling_ar_epoch_19.pth
+  batch_size: 500

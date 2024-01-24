@@ -4,26 +4,30 @@ from torchvision import datasets
 from torchvision.datasets import CIFAR10
 import torch
 import numpy as np
-from models.coupling_ar import CouplingFlowAR
+from models.CouplingFlowAR import CouplingFlowAR
+from models.CouplingFlowARMod import CouplingFlowARMod
+from models.ResSNO import ResSNO
 from modules.act_norm import ActNorm
+import numpy as np
 class _Collate_fn(object):
-    def __init__(self, range):
-        self.range = [i//4 for i in range]
+    def __init__(self, shape_setting):
+        self.percentages = [i[1] for i in shape_setting]
+        self.res = [i[0] for i in shape_setting]
     def __call__(self, batch):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: (x * 255).float()),
-            transforms.Resize(np.random.randint(*self.range)*4, antialias=True),
+            transforms.Resize(int(np.random.choice(self.res, p=self.percentages)), antialias=True),
         ])
         data, labels = zip(*batch)
         data = [transform(item) for item in data]
         return torch.stack(data), torch.tensor(labels)
-def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", varying_shape=False, range=None, **kwargs):
+def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", varying_shape=False, shape_setting=None, shape=None, **kwargs):
     if not varying_shape:
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: (x * 255).float()),  # Quantize
-            transforms.Resize(range[0], antialias=True),
+            transforms.Resize(shape, antialias=True),
         ])
         train_dataset = datasets.MNIST(
             root=dir,
@@ -58,8 +62,8 @@ def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", v
         for t in targets:
             indices = indices | (train_dataset.targets == t)
         train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
-        assert range is not None, "Varying shape but failed to provide a range."
-        collate_fn = _Collate_fn(range)
+        assert shape_setting is not None, "Varying shape but failed to provide a range."
+        collate_fn = _Collate_fn(shape_setting)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
         test_dataset = datasets.MNIST(
             root=dir,
@@ -105,11 +109,15 @@ def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", v
 
 def load_model(model, path):
     model.load_state_dict(torch.load(path))
-    if isinstance(model, CouplingFlowAR):
+    if isinstance(model, CouplingFlowAR) or isinstance(model, CouplingFlowARMod):
         for i in model.flow:
             if isinstance(i, ActNorm):
                 i.is_initialized = True
         for i in model.ar_flow:
+            if isinstance(i, ActNorm):
+                i.is_initialized = True
+    if isinstance(model, ResSNO):
+        for i in model.flows:
             if isinstance(i, ActNorm):
                 i.is_initialized = True
     return model

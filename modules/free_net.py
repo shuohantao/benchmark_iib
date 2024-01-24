@@ -109,7 +109,7 @@ class FCL(nn.Module):
         return s, t
 
 class NeuropCNN(nn.Module):
-    def __init__(self, device=torch.device('cuda'), c_in = 1, c_hidden = 64, c_out = -1, default_shape = 28, linear=True, kernel_shapes = [3]*3, residual=None, mode="interpolate", fourier=False):
+    def __init__(self, device=torch.device('cuda'), c_in = 1, c_hidden = 32, c_out = -1, default_shape = 28, linear=True, kernel_shapes = [3]*3, residual=None, mode="interpolate", fourier=False):
         super().__init__()
         default_shape = torch.Size([64, 1, default_shape, default_shape])
         self.default_x = default_shape[-1]

@@ -1,9 +1,9 @@
 import yaml
 import torch.nn as nn
 import torchvision.utils as utils
-from models.coupling_ar import CouplingFlowAR
+from models.CouplingFlowAR import CouplingFlowAR
 import torchvision.transforms.functional as F
-from models.multilevelDiff import MultilevelDiff
+from models.MultilevelDiff import MultilevelDiff
 from utils.load import *
 from math import log2, exp, log
 from tqdm import tqdm
