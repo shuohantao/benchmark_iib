@@ -22,59 +22,29 @@ class _Collate_fn(object):
         data, labels = zip(*batch)
         data = [transform(item) for item in data]
         return torch.stack(data), torch.tensor(labels)
-def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", varying_shape=False, shape_setting=None, shape=None, **kwargs):
-    if not varying_shape:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: (x * 255).float()),  # Quantize
-            transforms.Resize(shape, antialias=True),
-        ])
-        train_dataset = datasets.MNIST(
-            root=dir,
-            train=True,
-            download=True,
-            transform=transform,
-        )
-        indices = torch.zeros_like(train_dataset.targets, dtype=torch.bool)
-        for t in targets:
-            indices = indices | (train_dataset.targets == t)
-        train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    
-        test_dataset = datasets.MNIST(
-            root=dir,
-            train=False,
-            download=True,
-            transform=transform,
-        )
-        indices = torch.zeros_like(test_dataset.targets, dtype=torch.bool)
-        for t in targets:
-            indices = indices | (test_dataset.targets == t)
-        test_dataset.data, test_dataset.targets = test_dataset.data[indices], test_dataset.targets[indices]
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    else:
-        train_dataset = datasets.MNIST(
-            root=dir,
-            train=True,
-            download=True,
-        )
-        indices = torch.zeros_like(train_dataset.targets, dtype=torch.bool)
-        for t in targets:
-            indices = indices | (train_dataset.targets == t)
-        train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
-        assert shape_setting is not None, "Varying shape but failed to provide a range."
-        collate_fn = _Collate_fn(shape_setting)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
-        test_dataset = datasets.MNIST(
-            root=dir,
-            train=False,
-            download=True,
-        )
-        indices = torch.zeros_like(test_dataset.targets, dtype=torch.bool)
-        for t in targets:
-            indices = indices | (test_dataset.targets == t)
-        test_dataset.data, test_dataset.targets = test_dataset.data[indices], test_dataset.targets[indices]
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", shape_setting=None, **kwargs):
+    train_dataset = datasets.MNIST(
+        root=dir,
+        train=True,
+        download=True,
+    )
+    indices = torch.zeros_like(train_dataset.targets, dtype=torch.bool)
+    for t in targets:
+        indices = indices | (train_dataset.targets == t)
+    train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
+    assert shape_setting is not None, "Varying shape but failed to provide a range."
+    collate_fn = _Collate_fn(shape_setting)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+    test_dataset = datasets.MNIST(
+        root=dir,
+        train=False,
+        download=True,
+    )
+    indices = torch.zeros_like(test_dataset.targets, dtype=torch.bool)
+    for t in targets:
+        indices = indices | (test_dataset.targets == t)
+    test_dataset.data, test_dataset.targets = test_dataset.data[indices], test_dataset.targets[indices]
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     return train_loader, test_loader
 def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", varying_shape=False, range=None, **kwargs):
     trainset = CIFAR10(dir, train=True, download=True, transform=transform)

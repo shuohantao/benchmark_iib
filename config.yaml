@@ -78,13 +78,13 @@ model:
 train:
   epochs: 50
   lr: 0.00001
-  lr_d: 0.00001
+  lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
   save_freq: 5
   test_freq: 5
-  save_path: tmp/runs/ckpt/
-  test_path: tmp/runs/test/
+  save_path: tmp/runs/ckpt/ # path to save the trained model's checkpoint
+  test_path: tmp/runs/test/ # path to save the test results
   test_lowest_resolution: 28
-  load_path: null
+  load_path: null # null to train a new model
   save_name: CouplingFlowAR_10
 MMD_test:
   resolutions: [28, 32]
