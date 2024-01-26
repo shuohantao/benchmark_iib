@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from haar_pytorch import HaarForward, HaarInverse
+
 def low_pass(x, modes, device):
     x = x.to(device)
     B, C, H, W = x.shape
@@ -47,3 +49,5 @@ def _perform_idft(F):
     F = torch.fft.ifftshift(F)
     img = torch.fft.ifft2(F, norm='ortho').float()
     return img
+
+# def wavelet_seg(x, device):

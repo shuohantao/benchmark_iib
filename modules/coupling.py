@@ -3,10 +3,9 @@ import torch
 
 
 class CouplingLayer(nn.Module):
-    def __init__(self, partition, free_net, c_in, use_unet=False, device=torch.device('cuda')):
+    def __init__(self, partition, free_net, c_in, device=torch.device('cuda')):
         super().__init__()
         self.free_net = free_net
-        self.use_unet=use_unet
         self.scaling_factor = nn.Parameter(torch.zeros(c_in))
         self.epsilon = 1e-5
         self.partition = partition

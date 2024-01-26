@@ -48,10 +48,16 @@ class CouplingFlowAR(nn.Module):
                                       CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, False], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=64, default_shape=8, fourier=fourier), c_in=2),
                                       ActNorm(2),
                                       InvConv2d(2),
-                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, True], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=64, default_shape=8, fourier=fourier), c_in=2),
+                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, True], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=128, default_shape=8, fourier=fourier), c_in=2),
                                       ActNorm(2),
                                       InvConv2d(2),
-                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, False], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=64, default_shape=8, fourier=fourier), c_in=2),
+                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, False], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=128, default_shape=8, fourier=fourier), c_in=2),
+                                      ActNorm(2),
+                                      InvConv2d(2),
+                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, True], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=128, default_shape=8, fourier=fourier), c_in=2),
+                                      ActNorm(2),
+                                      InvConv2d(2),
+                                      CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, False], free_net=NeuropCNN(c_in=6, c_out=4, c_hidden=128, default_shape=8, fourier=fourier), c_in=2),
                                       ])
         even = True
         for i in range(depth_1):

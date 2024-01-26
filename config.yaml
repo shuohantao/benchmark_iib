@@ -5,7 +5,8 @@ data:
   num_workers: 4
   num_samples: 10000
   varying_shape: True
-  shape_setting: [[28, 0.9], [64, 0.1]]
+  shape_setting: [[28, 0.9], [64, 0.1]] # first element resolution, second element percentage
+                                        # resolutions sampled from multinomial distribution
   targets:
     - 0
     - 1
@@ -75,7 +76,7 @@ model:
       vars: 1
       eps: 0.001
 train:
-  epochs: 30
+  epochs: 50
   lr: 0.00001
   lr_d: 0.00001
   save_freq: 5
@@ -89,4 +90,4 @@ MMD_test:
   resolutions: [28, 32]
   test_model: CouplingFlowAR
   model_pth: tmp/runs/saved_ckpt/coupling_ar_epoch_19.pth
-  batch_size: 500
+  batch_size: 64
