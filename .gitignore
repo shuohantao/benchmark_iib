@@ -16,3 +16,5 @@ todo.txt
 **/test/
 **/hmdb_data/
 *.pth
+*.pkl
+#.pt
