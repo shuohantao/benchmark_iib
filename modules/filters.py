@@ -17,6 +17,7 @@ def low_pass(x, modes, device):
         F_low_modes = F[:, :, n_rem:-n_rem, n_rem:-n_rem]
         x_rec = _perform_idft(F_low_modes)
     return x_rec
+
 def frequency_seg(x, modes, step, device):
     x_low = low_pass(x, modes, device)
     x = x.to(device)
@@ -50,4 +51,13 @@ def _perform_idft(F):
     img = torch.fft.ifft2(F, norm='ortho').float()
     return img
 
-# def wavelet_seg(x, device):
+def wavelet_seg(x, num_scales):
+    haar = HaarForward()
+    segments = []
+    for i in range(num_scales):
+        transformed = haar(x)
+        undersampled = transformed[:, 0, ...].unsqueeze(1).to(x.device)
+        coeffs = transformed[:, 1:, ...].to(x.device)
+        segments.append([undersampled, coeffs])
+        x = undersampled
+    return segments

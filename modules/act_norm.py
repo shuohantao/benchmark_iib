@@ -9,7 +9,8 @@ class ActNorm(nn.Module):
         self.log_scale = nn.Parameter(torch.zeros(1, n_channels, 1, 1))
         self.is_initialized = False
 
-    def forward(self, z, move_towards_base=True):
+    def forward(self, z, sample=False, **kwargs):
+        move_towards_base = not sample
         if move_towards_base:
             if not self.is_initialized:
                 self._initialize(z)

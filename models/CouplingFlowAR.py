@@ -110,10 +110,7 @@ class CouplingFlowAR(nn.Module):
             prior_shape = self.modes
             z = self.prior.sample(torch.Size([num_samples]+[self.shape[-3]*8, prior_shape//4, prior_shape//4])).to(device)
             for i in reversed(self.flow[1:]):
-                if isinstance(i, ActNorm):
-                    z, _ = i(z, move_towards_base=False)
-                else:
-                    z, _ = i(z, sample=True)
+                z, _ = i(z, sample=True)
             img = z
             con = _perform_dft(img)
             con = F.pad(con, (1, 1, 1, 1), 'constant', 0)
@@ -123,9 +120,7 @@ class CouplingFlowAR(nn.Module):
                 prior_shape = torch.Size([num_samples, 2, con.shape[-2], con.shape[-1]])
                 sub_img = self.prior.sample(prior_shape).to(device)
                 for j in reversed(self.ar_flow):
-                    if isinstance(j, ActNorm):
-                        sub_img, _ = j(sub_img, move_towards_base=False)
-                    elif isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
+                    if isinstance(j, ActNorm) or isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
                         sub_img, _ = j(sub_img, sample=True)
                         if isinstance(j, SqueezeFlow):
                             con, _ = self.dummy_squeeze(con, sample=True)

@@ -56,6 +56,7 @@ class Trainer:
         test_path = self.cm.config['train']['test_path']
         train_set, test_set = self.load_dataset()
         test_lowest = self.cm.config['train']['test_lowest_resolution']
+        test_resolutions = self.cm.config['train']['test_resolutions']
         epochs = tqdm(range(epochs), position=0)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         if self.is_gan:
@@ -110,7 +111,7 @@ class Trainer:
                 else:
                     torch.save(self.model.state_dict(), save_path+f"{self.cm.config['train']['save_name']}_epoch_{i}.pth")
             if i % test_freq == 0:
-                sample_grid(self.model, test_lowest, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
+                sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
         if self.is_gan:
             plt.clf()
             plt.plot(loss_curve_G, label="Generator")

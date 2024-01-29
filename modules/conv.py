@@ -14,7 +14,7 @@ class InvConv2d(nn.Module):
         weight = q.unsqueeze(2).unsqueeze(3)
         self.weight = nn.Parameter(weight)
 
-    def forward(self, input, sample=False):
+    def forward(self, input, sample=False, **kwargs):
         _, _, height, width = input.shape
 
         logdet = (

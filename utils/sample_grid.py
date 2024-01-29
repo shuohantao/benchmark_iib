@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
 import torch
 import torchvision
-def sample_grid(model, lowest, path, clip_range=None):
+def sample_grid(model, lowest, resolutions, path, clip_range=None):
     plt.rcParams['figure.figsize'] = [8, 8]
-    size_range = range(lowest, lowest+4*4, 4)
+    if resolutions is None:
+        size_range = range(lowest, lowest+4*4, 4)
+    else:
+        size_range = resolutions
     for i, size in enumerate(size_range):
         plt.subplot(2, 2, i+1)
         plt.title(f'{size}x{size}')
