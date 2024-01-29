@@ -78,11 +78,11 @@ model:
     WaveletFlow:
       num_scales: 2
       max_res: 64
-      step_settings: [8, 8, 16] # depths of flow, the last one is for unconditional flow
-      conv_settings: [64, 64, 128] # width of convolution channels
+      step_settings: [8, 8, 8] # depths of flow, the last one is for unconditional flow
+      conv_settings: [64, 64, 64] # width of convolution channels
 train:
   epochs: 31
-  lr: 0.00001
+  lr: 0.0001
   lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
   save_freq: 5
   test_freq: 5
