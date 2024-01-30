@@ -7,6 +7,7 @@ import numpy as np
 from models.CouplingFlowAR import CouplingFlowAR
 from models.CouplingFlowARMod import CouplingFlowARMod
 from models.ResSNO import ResSNO
+from models.WaveletFlow import WaveletFlow
 from modules.act_norm import ActNorm
 import numpy as np
 class _Collate_fn(object):
@@ -32,7 +33,7 @@ def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", s
     for t in targets:
         indices = indices | (train_dataset.targets == t)
     train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
-    assert shape_setting is not None, "Varying shape but failed to provide a range."
+    assert shape_setting is not None, "Varying shape but failed to provide shapes."
     collate_fn = _Collate_fn(shape_setting)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     test_dataset = datasets.MNIST(
@@ -46,9 +47,9 @@ def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", s
     test_dataset.data, test_dataset.targets = test_dataset.data[indices], test_dataset.targets[indices]
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     return train_loader, test_loader
-def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", varying_shape=False, range=None, **kwargs):
-    trainset = CIFAR10(dir, train=True, download=True, transform=transform)
-    testset = CIFAR10(dir, download=True, transform=transform)
+def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", range=None, **kwargs):
+    trainset = CIFAR10(dir, train=True, download=True)
+    testset = CIFAR10(dir, download=True)
     idx = []
     idx_test = []
     targets = set(targets)
@@ -62,19 +63,10 @@ def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", v
             idx_test.append(i)
     trainset = Subset(trainset, idx)
     testset = Subset(testset, idx_test)
-    if not varying_shape:
-        transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Lambda(lambda x: (x * 255).float()),  # Quantize
-                transforms.Resize(range[0], antialias=True),
-            ])
-        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    else:
-        assert range is not None, "Varying shape but failed to provide a range."
-        collate_fn = _Collate_fn(range)
-        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
-        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+    assert range is not None, "Varying shape but failed to provide a range."
+    collate_fn = _Collate_fn(range)
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     return train_loader, test_loader
 
 def load_model(model, path):
@@ -88,6 +80,14 @@ def load_model(model, path):
                 i.is_initialized = True
     if isinstance(model, ResSNO):
         for i in model.flows:
+            if isinstance(i, ActNorm):
+                i.is_initialized = True
+    if isinstance(model, WaveletFlow):
+        for i in model.flows:
+            for j in i:
+                if isinstance(j, ActNorm):
+                    j.is_initialized = True
+        for i in model.uncon_flow:
             if isinstance(i, ActNorm):
                 i.is_initialized = True
     return model

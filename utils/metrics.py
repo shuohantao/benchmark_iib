@@ -1,6 +1,5 @@
 #code from https://github.com/htlambley/multilevelDiff
 import torch
-from pykeops.torch import LazyTensor
 
 import scipy
 import scipy.linalg
@@ -39,14 +38,6 @@ def compute_vendi_score(X, q=1):
     return np.exp(entropy_q(w, q=q))
 
 
-def differences_keops(p,q):
-    '''
-    Compute the pairwise differences using the module pykeops
-    '''
-    q_k = LazyTensor(q.unsqueeze(1).contiguous())
-    p_k = LazyTensor(p.unsqueeze(0).contiguous())
-    rmv = q_k-p_k
-    return rmv
 
 def differences(p,q):
     '''
@@ -57,43 +48,36 @@ def differences(p,q):
     diff = p.reshape(m_p,1,dim) - q.reshape(1,m_q,dim)
     return diff
 
-def distance(p,q,diff=None,usekeops=False):
+def distance(p,q,diff=None):
     '''
     Compute the norms of the pairwise differences
     '''
-    if usekeops:
-        if diff is None:
-            diff = differences_keops(p,q) + 1e-13
-        out = (diff**2).sum(2).sqrt()
-    else:
-        if diff is None:
-            diff = differences(p,q)
-        out=torch.linalg.vector_norm(diff,ord=2,dim=2)
+    if diff is None:
+        diff = differences(p,q)
+    out=torch.linalg.vector_norm(diff,ord=2,dim=2)
     return out
 
-def energy(p,q,r=1.,usekeops=False):
+def energy(p,q,r=1.):
     '''
     Sum up over all computed distances
     '''
-    dist = distance(p,q,usekeops=usekeops)
-    if usekeops:
-        return 0.5*((dist**r).sum(0).sum(0))/(p.shape[0]*q.shape[0])
-    else:
-        return 0.5*torch.sum(dist**r)/(p.shape[0]*q.shape[0])
+    dist = distance(p,q)
+
+    return 0.5*torch.sum(dist**r)/(p.shape[0]*q.shape[0])
 
 
-def interaction_energy_term(particles_out1,r=1.,usekeops=False):
+def interaction_energy_term(particles_out1,r=1.):
     '''
     Compute the interaction energy
     '''
-    return -energy(particles_out1,particles_out1,r=r,usekeops=usekeops)
+    return -energy(particles_out1,particles_out1,r=r)
 
-def potential_energy_term(particles_out1,target_particles,r=1.,usekeops=False):
+def potential_energy_term(particles_out1,target_particles,r=1.):
     '''
     Compute the potential energy
     '''
-    return 2*energy(particles_out1,target_particles,r=r,usekeops=usekeops)
+    return 2*energy(particles_out1,target_particles,r=r)
 
 
-def mmd(samples1,samples2,r = 1, use_keops= False):
-    return potential_energy_term(samples1,samples2,r,use_keops)+interaction_energy_term(samples1,r,use_keops)+interaction_energy_term(samples2,r,use_keops)
+def mmd(samples1,samples2,r = 1):
+    return potential_energy_term(samples1,samples2,r)+interaction_energy_term(samples1,r)+interaction_energy_term(samples2,r)

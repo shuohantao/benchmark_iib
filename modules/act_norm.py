@@ -1,3 +1,4 @@
+from typing import Any, Mapping
 import torch 
 import torch.nn as nn
 
@@ -34,3 +35,7 @@ class ActNorm(nn.Module):
             self.log_scale.data.copy_(-torch.log(std + 1e-6))
             self.shift.data.copy_(-mu)
             self.is_initialized = True
+    
+    def load_state_dict(self, state_dict, strict=True):
+        self.is_initialized = True
+        super().load_state_dict(state_dict, strict)
