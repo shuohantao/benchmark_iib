@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 class SqueezeFlow(nn.Module):
-    def forward(self, z, sample=False):
+    def forward(self, z, sample=False, **kwargs):
         B, C, H, W = z.shape
         if not sample:
             # Forward direction: H x W x C => H/2 x W/2 x 4C

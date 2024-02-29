@@ -8,18 +8,18 @@ data:
                                         # resolutions sampled from multinomial distribution
   targets:
     - 0
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
+    # - 1
+    # - 2
+    # - 3
+    # - 4
+    # - 5
+    # - 6
+    # - 7
+    # - 8
+    # - 9
   mono: True
 model:
-  name: WaveletFlow
+  name: CAFFNO
   loss_unit: bpd
   is_gan: False # if True, return tuple loss in forward pass, 
                 # first element being generator loss, second element discriminator loss,
@@ -28,7 +28,7 @@ model:
                 # train either generator or discriminator in a single forward pass,
                 # loss for part that's not trained needs to be None
   details:
-    CouplingFlowAR:
+    CAF:
       shape: [1, 1, 16, 16]
       depth_1: 4
       depth_2: 4
@@ -36,8 +36,18 @@ model:
       modes: 16
       fourier: True
       normalize: False
-    CouplingFlowARMod:
+    CAFMod:
       shape: [1, 1, 16, 16]
+      depth_1: 4
+      depth_2: 4
+      depth_3: 8
+      modes: 16
+      fourier: True
+      normalize: False
+    CAFFNO:
+      shape: [1, 1, 16, 16]
+      ar_depth: 2
+      ar_width: 1
       depth_1: 4
       depth_2: 4
       depth_3: 8
@@ -78,19 +88,20 @@ model:
       num_scales: 2
       max_res: 64
       step_settings: [16, 16, 16] # depths of flow, the last one is for unconditional flow
-      conv_settings: [128, 128, 256] # width of convolution channels
+      conv_settings: [128, 128, 128] # width of convolution channels
+      base_split: True
 train:
-  epochs: 31
-  lr: 0.0001
+  epochs: 51
+  lr: 0.00001
   lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
-  save_freq: 5
-  test_freq: 5
+  save_freq: 10
+  test_freq: 3
   save_path: tmp/runs/ckpt/ # path to save the trained model's checkpoint
   test_path: tmp/runs/test/ # path to save the test results
-  test_lowest_resolution: 28
+  test_lowest_resolution: null
   load_path: null # null to train a new model
-  save_name: WaveletFlow_0
-  test_resolutions: [16, 32, 64, 64]
+  save_name: CAFFNO
+  test_resolutions: [16, 28, 32, 64]
 MMD_test:
   resolutions: [16, 32, 64]
   test_model: WaveletFlow

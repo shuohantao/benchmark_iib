@@ -50,7 +50,7 @@ class SpectralConv2d(nn.Module):
         return x
 
 class FNO2d(nn.Module):
-    def __init__(self, modes1, modes2, width):
+    def __init__(self, modes1, modes2, width, c_in, c_out):
         super(FNO2d, self).__init__()
 
         """
@@ -90,19 +90,17 @@ class FNO2d(nn.Module):
 
 
         
-        self.fc0 = nn.Linear(4, self.width) # input channel is 3: (a(x, y), x, y)
+        self.fc0 = nn.Linear(c_in+3, self.width) # input channel is 3: (a(x, y), x, y)
         self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, 1)
+        self.fc2 = nn.Linear(128, c_out)
 
 
     def forward(self, x,t):
-        t = t.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1,1,x.shape[2],x.shape[3])
+        t = t.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(x.shape[0],1,x.shape[2],x.shape[3])
         x = x.permute(0,2,3,1)
         t = t.permute(0,2,3,1)
         grid = self.get_grid(x.shape, x.device)
-
         x = torch.cat((x, grid,t), dim=-1)
-        
         x = self.fc0(x)
         x = x.permute(0, 3, 1, 2)
         x1 = self.conv0(x)

@@ -8,7 +8,7 @@ class WaveletRes(nn.Module):
         self.c1 = nn.Conv2d(hid_c, out_c, 1)
         self.relu = nn.ReLU()
     def forward(self, x):
-        x_orig = x.clone()
+        x_orig = x
         x = self.relu(self.c3(x))
         x = self.c1(x)
         return x + x_orig
@@ -31,4 +31,5 @@ class WaveFree(nn.Module):
         x = self.r3(x)
         x = self.relu(x)
         x = self.c2(x)
+
         return x

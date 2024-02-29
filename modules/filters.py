@@ -61,3 +61,18 @@ def wavelet_seg(x, num_scales):
         segments.append([undersampled, coeffs])
         x = undersampled
     return segments
+
+def bilinear_seg(x, modes, step, device):
+    x = x.to(device)
+    pyramid = [F.interpolate(x, size=(modes, modes), mode='bilinear')]
+    B, C, H, W = x.shape
+    for i in range((H - modes)//step - 1):
+        pyramid.append(F.interpolate(x, size=(modes+(i+1)*step, modes+(i+1)*step), mode='bilinear', align_corners=True))
+    pyramid.append(x)
+    residual = []
+    for i, j in enumerate(pyramid[1:]):
+        con = F.interpolate(pyramid[i], size=(modes+(i+1)*step, modes+(i+1)*step), mode='bilinear', align_corners=True)
+        residual.append([j-con, con])
+    return pyramid[0], residual
+
+

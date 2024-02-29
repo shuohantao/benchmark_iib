@@ -4,8 +4,9 @@ from torchvision import datasets
 from torchvision.datasets import CIFAR10
 import torch
 import numpy as np
-from models.CouplingFlowAR import CouplingFlowAR
-from models.CouplingFlowARMod import CouplingFlowARMod
+from models.CAF import CAF
+from models.CAFMod import CAFMod
+from models.CAFFNO import CAFFNO
 from models.ResSNO import ResSNO
 from models.WaveletFlow import WaveletFlow
 from modules.act_norm import ActNorm
@@ -18,7 +19,8 @@ class _Collate_fn(object):
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: (x * 255).float()),
-            transforms.Resize(int(np.random.choice(self.res, p=self.percentages)), antialias=True),
+            transforms.Resize(int(np.random.choice(self.res, p=self.percentages)), antialias=True, interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.Lambda(lambda x: torch.clamp(x, 0, 255)),
         ])
         data, labels = zip(*batch)
         data = [transform(item) for item in data]
@@ -71,7 +73,7 @@ def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", r
 
 def load_model(model, path):
     model.load_state_dict(torch.load(path))
-    if isinstance(model, CouplingFlowAR) or isinstance(model, CouplingFlowARMod):
+    if isinstance(model, CAF) or isinstance(model, CAFMod) or isinstance(model, CAFFNO):
         for i in model.flow:
             if isinstance(i, ActNorm):
                 i.is_initialized = True

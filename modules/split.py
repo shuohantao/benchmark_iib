@@ -7,7 +7,7 @@ class SplitFlow(nn.Module):
         self.device = device
         self.test_inv = test_inv
         self.last_split = None
-    def forward(self, z, sample=False):
+    def forward(self, z, sample=False, **kwargs):
         if not sample:
             z, z_split = z.chunk(2, dim=1)
             ldj = self.prior.log_prob(z_split).sum(dim=[1,2,3])
