@@ -1,6 +1,6 @@
 # This is a pipeline for benchmarking image generative models across different resolutions.
 ## To Start
-### 1. Add your custom model as a single python file, containing a single class whose name is the same as the filename.
+ 1. Add your custom model as a single python file, containing a single class whose name is the same as the filename.
 ### 2. Custom model needs to have forward and sample functions defined. Sample takes requires three arguments: num_samples, resolution, device. Forward takes a single argument.
 ### 3. Include an additional field under the details section in the model configuration file "config.yaml". The name of the additional field has to be the same as the custom model's class name. Under this field, include all arguments for the model's constructor.
 ### 4. If model is GAN based, modify the "is_gan" field accordingly.
