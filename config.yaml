@@ -4,22 +4,24 @@ data:
   batch_size: 64
   num_workers: 4
   num_samples: 10000
-  shape_setting: [[64, 1]] # first element resolution, second element percentage
+  shape_setting: [[4, 1]] # first element resolution, second element percentage
                                         # resolutions sampled from multinomial distribution
   targets:
     - 0
-    # - 1
-    # - 2
-    # - 3
-    # - 4
-    # - 5
-    # - 6
-    # - 7
-    # - 8
-    # - 9
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
   mono: True
+  upper: 255
+  lower: 0
 model:
-  name: CAFFNO
+  name: NAF
   loss_unit: bpd
   is_gan: False # if True, return tuple loss in forward pass, 
                 # first element being generator loss, second element discriminator loss,
@@ -28,6 +30,8 @@ model:
                 # train either generator or discriminator in a single forward pass,
                 # loss for part that's not trained needs to be None
   details:
+    NAF:
+      shape: [1, 1, 28, 28]
     CAF:
       shape: [1, 1, 16, 16]
       depth_1: 4
@@ -46,21 +50,35 @@ model:
       normalize: False
     CAFFNO:
       shape: [1, 1, 16, 16]
-      ar_depth: 2
-      ar_width: 1
+      ar_depth: 8
+      ar_width: 32
       depth_1: 4
       depth_2: 4
       depth_3: 8
       modes: 16
       fourier: True
       normalize: False
+    CFFNO:
+      shape: [1, 1, 28, 28]
+      depth: 8
+      width: 64
+      modes: 12
+    CAFGRF:
+      shape: [1, 1, 16, 16]
+      depth_1: 4
+      depth_2: 4
+      depth_3: 8
+      modes: 16
+      ar_depth: 8
+      num_res: 2
+      ar_hid: 32
     MultilevelDiff:
       prior_modes_1: 28
       prior_modes_2: 14
       prior_scale: 1
       width: 64
     Gano:
-      d_co_domain: 20 
+      d_co_domain: 20
       modes_schedule: [12, 8, 4, 2]
       npad: 2
       n_critic: 5
@@ -91,17 +109,17 @@ model:
       conv_settings: [128, 128, 128] # width of convolution channels
       base_split: True
 train:
-  epochs: 51
-  lr: 0.00001
+  epochs: 21
+  lr: 0.0001
   lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
   save_freq: 10
-  test_freq: 3
+  test_freq: 1
   save_path: tmp/runs/ckpt/ # path to save the trained model's checkpoint
   test_path: tmp/runs/test/ # path to save the test results
   test_lowest_resolution: null
   load_path: null # null to train a new model
-  save_name: CAFFNO
-  test_resolutions: [16, 28, 32, 64]
+  save_name: CFFNO
+  test_resolutions: [8, 8, 8, 8]
 MMD_test:
   resolutions: [16, 32, 64]
   test_model: WaveletFlow

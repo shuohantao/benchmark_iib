@@ -20,4 +20,4 @@ def _sample_image_grid_from_model(model, device, resolution=28, clip_range=None)
         X_samples = torch.clamp(X_samples, clip_range[0], clip_range[1])
     
     grid = torchvision.utils.make_grid(X_samples, nrow=2)
-    plt.imshow(grid[0], cmap="gray", vmin=0, vmax=255)
+    plt.imshow(grid[0], cmap="gray", vmin=clip_range[0], vmax=clip_range[1])

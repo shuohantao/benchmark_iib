@@ -18,11 +18,8 @@ class CNN_Linear(nn.Module):
             nn.BatchNorm2d(c_hidden),
             nn.Conv2d(c_hidden, c_out, kernel_size=3, padding=1),
             torch.nn.Flatten(),
-            torch.nn.Linear(self.dim_through, self.dim_through//2),
+            torch.nn.Linear(self.dim_through, self.dim_through),
             nn.Softplus(),
-            torch.nn.Linear(self.dim_through//2, self.dim_through//2),
-            nn.Softplus(),
-            torch.nn.Linear(self.dim_through//2, self.dim_through),
         )
     def forward(self, x, **kwargs):
         st = self.net(x)
@@ -472,3 +469,36 @@ class FCL(nn.Module):
         self.net = nn.Sequential(*modules)
     def forward(self, x):
         return self.net(x)
+    
+class AliasFreeRes(nn.Module):
+    def __init__(self, in_c, hid_c) -> None:
+        super().__init__()
+        self.c1 = nn.Conv2d(in_c, hid_c, 3, padding=1)
+        self.c2 = nn.Conv2d(hid_c, hid_c, 3, padding=1)
+        self.c3 = nn.Conv2d(hid_c, in_c, 3, padding=1)
+    def forward(self, x):
+        x_orig = x
+        orig_shape = x.shape[-1]
+        upper = orig_shape * 2
+        out = self.c1(x)
+        out = F.interpolate(out, size=upper, mode='bilinear', align_corners=True)
+        out = F.elu(out)
+        out = F.interpolate(out, size=orig_shape, mode='bilinear', align_corners=True)
+        out = self.c2(out)
+        out = F.interpolate(out, size=upper, mode='bilinear', align_corners=True)
+        out = F.elu(out)
+        out = F.interpolate(out, size=orig_shape, mode='bilinear', align_corners=True)
+        out = self.c3(out)
+        out = F.interpolate(out, size=upper, mode='bilinear', align_corners=True)
+        out = F.elu(out)
+        out = F.interpolate(out, size=orig_shape, mode='bilinear', align_corners=True)
+        return out + x_orig
+    
+class AliasFreeCNN(nn.Module):
+    def __init__(self, in_c, out_c, num_res, hid_c) -> None:
+        super().__init__()
+        self.in_conv = nn.Conv2d(in_c, in_c, 3, padding=1)
+        self.res = nn.Sequential(*[AliasFreeRes(in_c, hid_c) for _ in range(num_res)])
+        self.out_conv = nn.Conv2d(in_c, out_c, 3, padding=1)
+    def forward(self, x):
+        return self.out_conv(self.res(self.in_conv(x)))

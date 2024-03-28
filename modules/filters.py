@@ -39,6 +39,11 @@ def frequency_seg(x, modes, step, device):
     freq_seg_img = _perform_idft(f)
     seg_list.append([freq_seg_img, _perform_idft(con)])
     return x_low, seg_list
+def frequency_seg_f(x, modes, step, upper, device):
+    F = torch.fft.fft2(x, norm='ortho')
+    F = torch.fft.fftshift(F)
+    
+    return x_low, seg_list
 def pad_zeros(x, width):
     torch.cat()
 def _perform_dft(img):

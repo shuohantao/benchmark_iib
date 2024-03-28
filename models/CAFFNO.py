@@ -61,13 +61,19 @@ class CAFFNO(nn.Module):
             con = i[1]
             x = i[0]
             sldj = 0
-            for j in self.ar_flow:
+            if x.isnan().any():
+                print("-1", torch.max(x).item(), torch.min(x).item())
+            for k, j in enumerate(self.ar_flow):
                 if isinstance(j, ActNorm) or isinstance(j, SqueezeFlow) or isinstance(j, SplitFlow) or isinstance(j, InvConv2d):
+                    ma = torch.max(x)
+                    mi = torch.min(x)
                     x, ldj = j(x)
                     if isinstance(j, SqueezeFlow):
                         con, _ = self.dummy_squeeze(con)
                 else:
                     x, ldj = j(x, condition=con, r=torch.Tensor([x.shape[-1]]).to(x.device))
+                if x.isnan().any():
+                    print(k, ma.item(), mi.item())
                 sldj += ldj
             ar_sldj += sldj.sum() + self.prior.log_prob(x).sum()
         return -deq_ldj-base_sldj-ar_sldj

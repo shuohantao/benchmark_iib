@@ -12,20 +12,22 @@ from models.WaveletFlow import WaveletFlow
 from modules.act_norm import ActNorm
 import numpy as np
 class _Collate_fn(object):
-    def __init__(self, shape_setting):
+    def __init__(self, shape_setting, upper, lower):
         self.percentages = [i[1] for i in shape_setting]
         self.res = [i[0] for i in shape_setting]
+        self.upper = upper
+        self.lower = lower
     def __call__(self, batch):
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: (x * 255).float()),
+            transforms.Lambda(lambda x: (x * (self.upper-self.lower) - self.lower).float()),
             transforms.Resize(int(np.random.choice(self.res, p=self.percentages)), antialias=True, interpolation=transforms.InterpolationMode.BICUBIC),
             transforms.Lambda(lambda x: torch.clamp(x, 0, 255)),
         ])
         data, labels = zip(*batch)
         data = [transform(item) for item in data]
         return torch.stack(data), torch.tensor(labels)
-def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", shape_setting=None, **kwargs):
+def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", shape_setting=None, upper=255, lower=0, **kwargs):
     train_dataset = datasets.MNIST(
         root=dir,
         train=True,
@@ -36,7 +38,7 @@ def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", s
         indices = indices | (train_dataset.targets == t)
     train_dataset.data, train_dataset.targets = train_dataset.data[indices], train_dataset.targets[indices]
     assert shape_setting is not None, "Varying shape but failed to provide shapes."
-    collate_fn = _Collate_fn(shape_setting)
+    collate_fn = _Collate_fn(shape_setting, upper, lower)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     test_dataset = datasets.MNIST(
         root=dir,
