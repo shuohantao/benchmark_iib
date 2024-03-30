@@ -4,7 +4,7 @@ data:
   batch_size: 64
   num_workers: 4
   num_samples: 10000
-  shape_setting: [[4, 1]] # first element resolution, second element percentage
+  shape_setting: [[28, 1]] # first element resolution, second element percentage
                                         # resolutions sampled from multinomial distribution
   targets:
     - 0
@@ -21,8 +21,8 @@ data:
   upper: 255
   lower: 0
 model:
-  name: NAF
-  loss_unit: bpd
+  name: PixelTransformer
+  loss_unit: null
   is_gan: False # if True, return tuple loss in forward pass, 
                 # first element being generator loss, second element discriminator loss,
                 # wrap both generator and discriminator in a single class,
@@ -108,8 +108,19 @@ model:
       step_settings: [16, 16, 16] # depths of flow, the last one is for unconditional flow
       conv_settings: [128, 128, 128] # width of convolution channels
       base_split: True
+    PixelTransformer:
+      ndp: 2
+      ndv: 1
+      nde: 128
+      nhead: 4
+      num_bins: 256
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 32
 train:
-  epochs: 21
+  epochs: 101
   lr: 0.0001
   lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
   save_freq: 10
@@ -119,7 +130,7 @@ train:
   test_lowest_resolution: null
   load_path: null # null to train a new model
   save_name: CFFNO
-  test_resolutions: [8, 8, 8, 8]
+  test_resolutions: [28, 28, 28, 28]
 MMD_test:
   resolutions: [16, 32, 64]
   test_model: WaveletFlow

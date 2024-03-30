@@ -1,7 +1,7 @@
 from torch.distributions.normal import Normal
 import torch
 import numpy as np
-import torch_dct as dct
+# import torch_dct as dct
 
 class GRF(object):
     def __init__(self, alpha, tau) -> None:

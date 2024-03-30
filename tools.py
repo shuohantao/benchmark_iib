@@ -79,6 +79,7 @@ class Trainer:
                     loss = self.model(j)
                     optimizer.zero_grad()
                     loss.backward()
+                    # grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1e-3)
                     optimizer.step()
                     nom_loss, unit = self.format_loss(loss, j)
                     avg_loss += nom_loss/len(batches)
@@ -111,7 +112,7 @@ class Trainer:
                 else:
                     torch.save(self.model.state_dict(), save_path+f"{self.cm.config['train']['save_name']}_epoch_{i}.pth")
             if i % test_freq == 0:
-                sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255))
+                sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255), test_set=test_set)
         if self.is_gan:
             plt.clf()
             plt.plot(loss_curve_G, label="Generator")
