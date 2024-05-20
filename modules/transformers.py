@@ -12,7 +12,9 @@ from torch.nn.modules.transformer import *
 import torch.nn as nn
 import torch.nn.functional as F
 LayerNorm = nn.LayerNorm
-
+def swish(x):
+    """Swish activation function"""
+    return torch.mul(x, torch.sigmoid(x))
 class TransformerEncoderLayerPrenorm(TransformerEncoderLayer):
     def __setstate__(self, state):
         if 'activation' not in state:
@@ -166,10 +168,11 @@ class ValueEncoder(nn.Module):
 class ValueDecoder(nn.Module):
     def __init__(self, nde, ndv):
         super(ValueDecoder, self).__init__()
-        self.pred_layer = nn.Linear(nde, ndv)
-
+        self.pred_layer = nn.Linear(nde, (ndv+nde)//3)
+        self.pred_layer_2 = nn.Linear((ndv+nde)//3, 2*(ndv+nde)//3)
+        self.pred_layer_3 = nn.Linear(2*(ndv+nde)//3, ndv)
     def forward(self, x):
-        return self.pred_layer(x)
+        return self.pred_layer_3(swish(self.pred_layer_2(swish(self.pred_layer(x)))))
 
 
 class PositionEncoder(nn.Module):

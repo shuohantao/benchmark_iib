@@ -7,7 +7,9 @@ class BaseDistManager:
     def __init__(self, type, ls, var, eps):
         self.type = type
         self.base_dist_cache = {}
-
+        self.ls = ls
+        self.var = var
+        self.eps = eps
     def get_base_dist(self, base_shape):
         h_base, w_base = base_shape[-2:]
         if h_base in self.base_dist_cache and w_base in self.base_dist_cache[h_base]:

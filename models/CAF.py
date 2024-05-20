@@ -9,7 +9,7 @@ from modules.split import SplitFlow
 from modules.coupling import CouplingLayerScaleInv
 from modules.dequantization import Dequantization
 from modules.conv import InvConv2d
-from modules.free_net import CNN_Linear, NeuropCNN
+from modules.free_net import CNN_Linear, NeuropCNN, GatedConvNet
 from modules.filters import frequency_seg
 from modules.filters import _perform_dft, _perform_idft
 from modules.act_norm import ActNorm
@@ -21,7 +21,7 @@ class CAF(nn.Module):
         super().__init__()
         self.prior = prior
         self.flow = nn.ModuleList()
-        self.flow.append(Dequantization())
+        # self.flow.append(Dequantization())
         self.dummy_squeeze = SqueezeFlow()
         self.shape = shape
         self.modes = modes
@@ -62,30 +62,29 @@ class CAF(nn.Module):
         even = True
         for i in range(depth_1):
             self.flow.append(ActNorm(1))
-            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net= CNN_Linear(c_in=1, c_out=2, c_hidden=16, shape=torch.Size((1, 1, modes, modes))), c_in=1))
+            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net= GatedConvNet(1, 32), c_in=1))
             even = not even
-        #PatchFlow(2)
         self.flow.append(SqueezeFlow())
         for i in range(depth_2):
             self.flow.append(ActNorm(4))
             self.flow.append(InvConv2d(4))
-            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net=CNN_Linear(c_in=4, c_out=8, c_hidden=32, shape=torch.Size((1, 4, modes//2, modes//2))), c_in=4))
+            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net=GatedConvNet(4, 64), c_in=4))
             even = not even
-        self.flow.append(SplitFlow(prior=prior, device=torch.device('cuda')))
+        self.flow.append(SplitFlow(prior=self.prior, device=torch.device('cuda')))
         self.flow.append(SqueezeFlow())
         for i in range(depth_3):
             self.flow.append(ActNorm(8))
             self.flow.append(InvConv2d(8))
-            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net=CNN_Linear(c_in=8, c_out=16, c_hidden=64, shape=torch.Size((1, 8, modes//4, modes//4))), c_in=8))
+            self.flow.append(CouplingLayerScaleInv(device=torch.device('cuda'), partition_even=[checkerBoard, even], free_net=GatedConvNet(8, 128), c_in=8))
             even = not even
     def forward(self, x):
-        sldj = 0
-        x, ldj = self.flow[0](x)
-        deq_ldj = ldj.sum()
+        # sldj = 0
+        # x, ldj = self.flow[0](x)
+        # deq_ldj = ldj.sum()
         sldj = 0
         x, seg_list = frequency_seg(x, self.modes, 1, torch.device('cuda'))
         # x.requires_grad = True ##uncomment for normal dequant
-        for i in self.flow[1:]:
+        for i in self.flow:
             x, ldj = i(x)
             sldj += ldj
         base_sldj = sldj.sum() + self.prior.log_prob(x).sum()
@@ -103,12 +102,12 @@ class CAF(nn.Module):
                     x, ldj = j(x, condition=con)
                 sldj += ldj
             ar_sldj += sldj.sum() + self.prior.log_prob(x).sum()
-        return -deq_ldj-base_sldj-ar_sldj
+        return -base_sldj-ar_sldj
     def sample(self, num_samples, resolution,  device, a=2, lm=1, eps=0.1, **kwargs):
         with torch.no_grad():
             prior_shape = self.modes
             z = self.prior.sample(torch.Size([num_samples]+[self.shape[-3]*8, prior_shape//4, prior_shape//4])).to(device)
-            for i in reversed(self.flow[1:]):
+            for i in reversed(self.flow):
                 z, _ = i(z, sample=True)
             img = z
             con = _perform_dft(img)
@@ -125,6 +124,7 @@ class CAF(nn.Module):
                             con, _ = self.dummy_squeeze(con, sample=True)
                     else:
                         sub_img, _ = j(sub_img, sample=True, condition=con)
+
                 if self.normalize:
                     sub_img *= ((1-eps)*a**(-lm*i) + eps)
                 img = sub_img + con
@@ -132,5 +132,6 @@ class CAF(nn.Module):
                 con = F.pad(con, (1, 1, 1, 1), 'constant', 0)
                 con = _perform_idft(con)
                 con, _ = self.dummy_squeeze(con)
-            img, _ = self.flow[0](img, sample=True)
+            # img, _ = self.flow[0](img, sample=True)
+            assert not torch.isnan(img).any()
             return img

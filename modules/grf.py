@@ -1,7 +1,7 @@
 from torch.distributions.normal import Normal
 import torch
 import numpy as np
-# import torch_dct as dct
+import torch_dct as dct
 
 class GRF(object):
     def __init__(self, alpha, tau) -> None:
@@ -16,7 +16,6 @@ class GRF(object):
         K1,K2 = torch.meshgrid(k,k)
         K1 = K1.to(x.device)
         K2 = K2.to(x.device)
-        # Define the (square root of) eigenvalues of the covariance operator
         C_base = (np.pi**2)*(K1**2 + K2**2)+self.tau**2
         C = torch.pow(C_base,-self.alpha/2.0)
         C = (self.tau**(self.alpha-1))*C

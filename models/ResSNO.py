@@ -11,9 +11,9 @@ class ResSNO(nn.Module):
     def __init__(self, n_layers, dim_hidden, depth, k_max, n_fourier_coeffs, coeff, n_ldj_iter, n_exact_terms, n_fixed_iter, use_unbiased, n_spectral_iter, type, ls=None, var=None, eps=None, **kwargs):
         super().__init__()
         self.flows = nn.ModuleList()
-        self.flows.append(Dequantization())
+        # self.flows.append(Dequantization())
         for i in range(n_layers):
-            self.flows.append(ActNorm(1))
+            # self.flows.append(ActNorm(1))
             self.flows.append(SpectralResnetLayer(dim_hidden, depth, k_max, n_fourier_coeffs, coeff, n_ldj_iter, n_exact_terms, n_fixed_iter, use_unbiased, n_spectral_iter, **kwargs))
         self.base_dist_manager = BaseDistManager(type, ls, var, eps)
         self.anti_aliasing_manager = None

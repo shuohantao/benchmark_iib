@@ -1,10 +1,10 @@
 data:
   path: data/
-  dataset: mnist
+  dataset: darcy
   batch_size: 64
   num_workers: 4
   num_samples: 10000
-  shape_setting: [[28, 1]] # first element resolution, second element percentage
+  shape_setting: [[32, 1]] # first element resolution, second element percentage
                                         # resolutions sampled from multinomial distribution
   targets:
     - 0
@@ -18,10 +18,11 @@ data:
     - 8
     - 9
   mono: True
-  upper: 255
-  lower: 0
+  upper: null
+  lower: null
 model:
-  name: PixelTransformer
+  name: CAF
+  name_sr: null
   loss_unit: null
   is_gan: False # if True, return tuple loss in forward pass, 
                 # first element being generator loss, second element discriminator loss,
@@ -34,12 +35,12 @@ model:
       shape: [1, 1, 28, 28]
     CAF:
       shape: [1, 1, 16, 16]
-      depth_1: 4
-      depth_2: 4
-      depth_3: 8
+      depth_1: 8
+      depth_2: 8
+      depth_3: 16
       modes: 16
       fourier: True
-      normalize: False
+      normalize: True
     CAFMod:
       shape: [1, 1, 16, 16]
       depth_1: 4
@@ -88,7 +89,7 @@ model:
       tau: 1
     ResSNO:
       n_layers: 64
-      dim_hidden: 512
+      dim_hidden: 128
       depth: 3
       k_max: 7
       n_fourier_coeffs: null
@@ -98,9 +99,9 @@ model:
       n_fixed_iter: 50
       use_unbiased: False
       n_spectral_iter: 20
-      type: standard
+      type: grf
       ls: 0.1
-      vars: 1
+      var: 1
       eps: 0.001
     WaveletFlow:
       num_scales: 2
@@ -118,22 +119,130 @@ model:
       num_decoder_layers: 10
       mode: "fourier"
       init_factor: 2
-      context_num: 32
+      context_num: 110
+      sample_mean: False
+    PixelTransformerSR:
+      ndp: 2
+      ndv: 1
+      nde: 128
+      nhead: 4
+      num_bins: 256
+      num_encoder_layers: 8
+      num_decoder_layers: 12
+      mode: "fourier"
+      init_factor: 2
+      context_num: 64
+      sample_mean: False
+    PixelTransformerAug:
+      ndp: 2
+      ndv: 1
+      nde: 128
+      nhead: 4
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 64
+      sample_mean: False
+    PixelVAE:
+      ndp: 2
+      ndv: 1
+      nde: 64
+      nhead: 4
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 64
+      sample_mean: False
+    PixelFourierVAE:
+      ndp: 2
+      ndv: 2
+      nde: 128
+      nhead: 4
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 64
+      sample_mean: False
+    PixelFourier:
+      ndp: 2
+      ndv: 2
+      nde: 128
+      nhead: 4
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 8
+      sample_mean: False
+    PixelTransformerFourierCoupling:
+      ndp: 2
+      ndv: 2
+      nde: 128
+      nhead: 8
+      num_flow_layers: 32
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 16
+      sample_mean: False
+    StochFlow:
+      num_coupling_layers: 8
+      num_steps: 10
+    parapflow:
+      in_d: 1
+      num_head: 4
+      depth_1: 4
+      depth_2: 4
+      depth_3: 8
+    PatchTransformer:
+      patch_size: 4
+      dim: 512
+      depth: 8
+      heads: 8
+      channels: 1
+      beta: 0.01
+    PatchVAE:
+      patch_size: 16
+      n_hid: 256
+    PixelPatchTransformerFlow:
+      ndp: 2
+      ndv: 1
+      nde: 128
+      nhead: 8
+      num_flow_layers: 32
+      num_encoder_layers: 10
+      num_decoder_layers: 10
+      mode: "fourier"
+      init_factor: 2
+      context_num: 16
+      patch_res: 4
+      num_rand_samples: 16
+    UnetFlow:
+      base_res: 16
+      context_num: 16
+    RealNVP:
+      depth_1: 6
+      depth_2: 6
+      depth_3: 12
 train:
-  epochs: 101
-  lr: 0.0001
+  epochs: 51
+  lr: 0.00001
   lr_d: 0.00001 # discriminator learning rate, ignore if model is not GAN based
-  save_freq: 10
+  save_freq: 1
   test_freq: 1
   save_path: tmp/runs/ckpt/ # path to save the trained model's checkpoint
   test_path: tmp/runs/test/ # path to save the test results
   test_lowest_resolution: null
-  load_path: null # null to train a new model
-  save_name: CFFNO
-  test_resolutions: [28, 28, 28, 28]
+  load_path: tmp/runs/ckpt/CAF_darcy_32_epoch_7.pth # null to train a new model
+  load_path_sr: null
+  save_name: PPTF_darcy_20_24_28_32_48_64
+  test_resolutions: [20, 28, 32, 48]
 MMD_test:
-  resolutions: [16, 32, 64]
-  test_model: WaveletFlow
-  model_pth: tmp/runs/ckpt/WaveletFlow_0_epoch_10.pth
-  batch_size: 100
+  resolutions: [20, 24, 28, 32, 48, 64]
+  batch_size: 1
+  num_batch: 100
   pickle_save_dir: test/mmd_test/

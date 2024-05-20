@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from .neurop import *
 class CNN_Linear(nn.Module):
-    def __init__(self, c_in, shape, c_hidden=32, c_out=-1, kernel_size = 3, padding=0, **kwargs):
+    def __init__(self, c_in, shape, c_hidden=32, c_out=-1, **kwargs):
         super().__init__()
         self.shape = shape
         self.c_out = c_out = c_out if c_out > 0 else 2 * c_in
@@ -17,9 +17,8 @@ class CNN_Linear(nn.Module):
             nn.Softplus(),
             nn.BatchNorm2d(c_hidden),
             nn.Conv2d(c_hidden, c_out, kernel_size=3, padding=1),
-            torch.nn.Flatten(),
-            torch.nn.Linear(self.dim_through, self.dim_through),
-            nn.Softplus(),
+            nn.Flatten(),
+            nn.Linear(self.dim_through, self.dim_through),
         )
     def forward(self, x, **kwargs):
         st = self.net(x)
@@ -66,18 +65,15 @@ class CNN(nn.Module):
         self.net = nn.Sequential(
             nn.Conv2d(c_in, n_hidden * c_in, kernel_size=kernel_size, padding=padding),
             nn.Softplus(),
-            nn.BatchNorm2d(n_hidden * c_in),
             nn.Conv2d(n_hidden * c_in, n_hidden * c_in, kernel_size=kernel_size, padding=padding),
             nn.Softplus(),
-            nn.BatchNorm2d(n_hidden * c_in),
             nn.Conv2d(n_hidden * c_in, c_out, kernel_size=kernel_size, padding=padding),
         )
         self.net[-1].weight.data.zero_()
         self.net[-1].bias.data.zero_()
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         st = self.net(x)
-        s, t = st.chunk(2, dim=1)
-        return s, t
+        return st
 
 class FCL(nn.Module):
     def __init__(self, shape):
@@ -456,7 +452,7 @@ class GatedConvNet(nn.Module):
         self.nn[-1].weight.data.zero_()
         self.nn[-1].bias.data.zero_()
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         return self.nn(x)
     
 class FCL(nn.Module):

@@ -3,19 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from modules.transformers import *
 from modules.mog import MoG, MoGNearest
+from modules.augmented import AugmentedParamFlow
 
-
-
-class PixelTransformer(nn.Module):
+class PixelTransformerAug(nn.Module):
     def __init__(
-        self, ndp, ndv, nde, nhead, num_encoder_layers, num_decoder_layers, mode, init_factor, num_bins, context_num=4, sample_mean=False):
-        super(PixelTransformer, self).__init__()
+        self, ndp, ndv, nde, nhead, num_encoder_layers, num_decoder_layers, mode, init_factor, context_num=4, sample_mean=False):
+        super(PixelTransformerAug, self).__init__()
         self.ndp = ndp
         self.ndv = ndv
         self.nde = nde
         self.sample_mean = sample_mean
-        self.ndv_out = num_bins*3
-
+        self.num_layer = 32
+        self.prob_model = AugmentedParamFlow(2, self.num_layer, ndv)
+        self.ndv_out = self.prob_model.calc_param() + 2 * self.num_layer
+        print(self.ndv_out)
         self.val_enc = ValueEncoder(ndv, nde)
         self.val_dec = ValueDecoder(2*nde, self.ndv_out)
         self.pos_enc = PositionEncoder(ndp, nde, mode, init_factor)
@@ -27,8 +28,7 @@ class PixelTransformer(nn.Module):
             dim_feedforward=4*nde,
             d_model = 2*nde
         )
-        self.bins = torch.linspace(0, 255, num_bins).cuda()
-        self.prob_model = MoG(self.bins)
+        
         self.context_num = context_num
     def sample_context(self, x, pos, num=4):
         nS, B, ndv = x.shape
@@ -63,13 +63,12 @@ class PixelTransformer(nn.Module):
         query_posns = self.pos_enc(query_posns)
         samples = torch.cat([sample_vals, sample_posns], dim=-1)
         query = torch.cat([torch.zeros_like(query_posns), query_posns], dim=-1)
-        # tgt_mask = square_id_mask(query.shape[0], device=query.device)
-        query_vals = self.transformer(samples, query)
-        tau, mu, sigs = self.val_dec(query_vals).chunk(3, dim=-1)
-        sigs = F.softplus(sigs) + 1e-5
-        nll = -self.prob_model.log_prob(tau, mu, sigs, query_truth)
+        tgt_mask = square_id_mask(query.shape[0], device=query.device)
+        query_vals = self.transformer(samples, query, tgt_mask=tgt_mask)
+        params = self.val_dec(query_vals)
+        nll = -self.prob_model(params, query_truth)
         return nll.sum()
-    def sample(self, x, num_context, sample_mean=False):
+    def sample(self, x, num_context, sample_mean):
         batch_size, channel, height, width = x.shape
         x_coords = torch.arange(width, dtype=torch.float32, device=x.device).view(1, 1, 1, -1)
         y_coords = torch.arange(height, dtype=torch.float32, device=x.device).view(1, 1, -1, 1)
@@ -84,20 +83,11 @@ class PixelTransformer(nn.Module):
         query_posns = self.pos_enc(query_posns)
         samples = torch.cat([sample_vals, sample_posns], dim=-1)
         query = torch.cat([torch.zeros_like(query_posns), query_posns], dim=-1)
-        # tgt_mask = square_id_mask(query.shape[0], device=query.device)
-        query_vals = self.transformer(samples, query)
-        tau, mu, sigs = self.val_dec(query_vals).chunk(3, dim=-1)
-        sigs = F.softplus(sigs) + 1e-5
-        tau = F.softmax(tau, dim=-1)
-        if not sample_mean:
-            qS, qB, qV = query_truth.shape
-            query_idx = torch.multinomial(tau.view(-1, tau.shape[-1]), num_samples=1).view(qS, qB, qV)
-            query_vals = self.bins[query_idx]
-            mu_selected = torch.gather(mu, dim=2, index=query_idx.long())
-            sigs_selected = torch.gather(sigs, dim=2, index=query_idx.long())
-            query_vals = query_vals + mu_selected + torch.randn_like(mu_selected) * sigs_selected
-        else:
-            query_vals = (tau * (self.bins + mu)).sum(dim=-1, keepdim=True)
+        tgt_mask = square_id_mask(query.shape[0], device=query.device)
+        query_vals = self.transformer(samples, query, tgt_mask=tgt_mask)
+        pS, pB, _ = query_vals.shape
+        query_vals = self.val_dec(query_vals)
+        query_vals = self.prob_model.sample(query_vals)
         img = torch.zeros_like(x).to(x.device)
         count = 0
         for i in range(height*width):
@@ -129,9 +119,9 @@ class PixelTransformer(nn.Module):
 
             for qx in range(ndq):
                 query = torch.cat([zero_vec, query_posns[[qx]]], dim=-1)
-                # tgt_mask = square_id_mask(1, device=query.device)
+                tgt_mask = square_id_mask(1, device=query.device)
 
-                query_val = self.transformer(samples, query)
+                query_val = self.transformer(samples, query, tgt_mask=tgt_mask)
                 query_val = self.out_pde_fn(self.val_dec(query_val)).sample(tau=tau)
 
                 query_val_enc = self.val_enc(query_val)

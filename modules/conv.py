@@ -28,3 +28,28 @@ class InvConv2d(nn.Module):
             logdet = -logdet
 
         return out, logdet
+    
+class InvConv1d(nn.Module):
+    def __init__(self, in_channel):
+        super().__init__()
+
+        weight = torch.randn(in_channel, in_channel)
+        # use the Q matrix from QR decomposition as the initial weight to make sure it's invertible
+        q, _ = torch.qr(weight)
+        weight = q.unsqueeze(2)
+        self.weight = nn.Parameter(weight)
+
+    def forward(self, input, sample=False, **kwargs):
+        S, B, C = input.shape
+
+        logdet = (
+            S * torch.log(torch.abs(torch.det(self.weight.squeeze())))
+        )
+        input = input.permute(1, 2, 0)
+        if not sample:
+            out = F.conv1d(input, self.weight)
+        else:
+            out = F.conv1d(input, self.weight.squeeze().inverse().unsqueeze(2))
+            logdet = -logdet
+        out = out.permute(2, 0, 1)
+        return out, logdet

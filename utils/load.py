@@ -11,6 +11,8 @@ from models.ResSNO import ResSNO
 from models.WaveletFlow import WaveletFlow
 from modules.act_norm import ActNorm
 import numpy as np
+from data.darcy.darcy_dataset import DarcyDataset
+
 class _Collate_fn(object):
     def __init__(self, shape_setting, upper, lower):
         self.percentages = [i[1] for i in shape_setting]
@@ -27,9 +29,21 @@ class _Collate_fn(object):
         data, labels = zip(*batch)
         data = [transform(item) for item in data]
         return torch.stack(data), torch.tensor(labels)
-def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", shape_setting=None, upper=255, lower=0, **kwargs):
+class _Collate_fn_darcy(object):
+    def __init__(self, shape_setting):
+        self.percentages = [i[1] for i in shape_setting]
+        self.res = [i[0] for i in shape_setting]
+
+    def __call__(self, batch):
+        transform = transforms.Compose([
+            transforms.Resize(int(np.random.choice(self.res, p=self.percentages)), antialias=True, interpolation=transforms.InterpolationMode.BICUBIC),
+        ])
+        batch = [transform(item) for item in batch]
+        return torch.stack(batch), None
+    
+def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], path="data/mnist", shape_setting=None, upper=255, lower=0, **kwargs):
     train_dataset = datasets.MNIST(
-        root=dir,
+        root=path,
         train=True,
         download=True,
     )
@@ -41,7 +55,7 @@ def load_mnist(batch_size=64, num_workers=0, targets=[0, 1], dir="data/mnist", s
     collate_fn = _Collate_fn(shape_setting, upper, lower)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
     test_dataset = datasets.MNIST(
-        root=dir,
+        root=path,
         train=False,
         download=True,
     )
@@ -74,14 +88,15 @@ def load_cifar(batch_size=64, num_workers=0, targets=[0, 1], dir="data/cifar", r
     return train_loader, test_loader
 
 def load_model(model, path):
-    model.load_state_dict(torch.load(path))
-    if isinstance(model, CAF) or isinstance(model, CAFMod) or isinstance(model, CAFFNO):
-        for i in model.flow:
-            if isinstance(i, ActNorm):
-                i.is_initialized = True
-        for i in model.ar_flow:
-            if isinstance(i, ActNorm):
-                i.is_initialized = True
+    
+    model.load_state_dict(torch.load(path), strict=False)
+    # if isinstance(model, CAF) or isinstance(model, CAFMod) or isinstance(model, CAFFNO):
+        # for i in model.flow:
+        #     if isinstance(i, ActNorm):
+        #         i.is_initialized = True
+        # for i in model.ar_flow:
+        #     if isinstance(i, ActNorm):
+        #         i.is_initialized = True
     if isinstance(model, ResSNO):
         for i in model.flows:
             if isinstance(i, ActNorm):
@@ -95,3 +110,12 @@ def load_model(model, path):
             if isinstance(i, ActNorm):
                 i.is_initialized = True
     return model
+
+def load_darcy(batch_size=64, num_workers=0, path="data/darcy", num_samples=-1, shape_setting=None, **kwargs):
+    train_dataset = DarcyDataset(path, num_samples=num_samples)
+    assert shape_setting is not None, "Varying shape but failed to provide shapes."
+    collate_fn = _Collate_fn_darcy(shape_setting)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+    test_dataset = train_dataset
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, drop_last=True)
+    return train_loader, test_loader

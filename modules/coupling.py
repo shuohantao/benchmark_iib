@@ -36,12 +36,13 @@ class CouplingLayerScaleInv(nn.Module):
         super().__init__()
         self.free_net = free_net
         self.use_unet=use_unet
-        self.scaling_factor = nn.Parameter(torch.zeros(c_in))
+        self.scaling_factor = nn.Parameter(torch.randn(c_in)/c_in**0.5)
+        self.shift_factor = nn.Parameter(torch.randn(c_in)/c_in**0.5)
         self.epsilon = 1e-5
         self.partition = partition_even[0]
         self.even = partition_even[1]
         self.device = device
-    def forward(self, x, sample=False, condition=None):
+    def forward(self, x, sample=False, condition=None, mask=None, **kwargs):
         shape = x.shape
         mask = self.partition(shape, self.even).to(self.device)
         x_left = x * mask
@@ -52,15 +53,18 @@ class CouplingLayerScaleInv(nn.Module):
             st = self.free_net(x_left, shape=shape)
             s, t = st.chunk(2, dim=1)
         s_fac = self.scaling_factor.exp().view(1, -1, 1, 1)
+        t_fac = self.shift_factor.exp().view(1, -1, 1, 1)
         s = torch.tanh(s / s_fac) * s_fac
+        t = torch.tanh(t / t_fac) * t_fac 
         s = s * (1 - mask)
         t = t * (1 - mask)
         if not sample:
             z = x * torch.exp(s) + t
             ldj = s.sum(dim=[1, 2, 3])
         if sample:
+            # print(torch.max(s), torch.min(s), torch.max(t), torch.min(t), self.scaling_factor, s.isnan().any())
             z = (x - t) * torch.exp(-s)
-            ldj = None
+            ldj = - s.sum(dim=[1, 2, 3])
         return z, ldj     
 
 class CouplingLayer1D(nn.Module):
@@ -242,3 +246,56 @@ class CouplingLayerAlias(nn.Module):
         x_r = torch.fft.irfft2(torch.complex(x_real, torch.zeros_like(x_real)), s=(h, w), norm='ortho').to(x.device)
         x_i = torch.fft.irfft2(torch.complex(torch.zeros_like(x_imag), x_imag), s=(h, w), norm='ortho').to(x.device)
         return x_r, x_i, x_real, x_imag
+    
+class CouplingPixelLayer(nn.Module):
+    def __init__(self, ndv, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.encode = nn.Sequential(
+            nn.Linear(ndv//2, 64),
+            nn.LeakyReLU(0.2),
+            nn.Linear(64, 128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 64),
+            nn.LeakyReLU(0.2),
+            nn.Linear(64, ndv),
+        )
+        self.decode = nn.Sequential(
+            nn.Linear(ndv//2, 64),
+            nn.LeakyReLU(0.2),
+            nn.Linear(64, 128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 64),
+            nn.LeakyReLU(0.2),
+            nn.Linear(64, ndv),
+        )
+        self.sfac_enc = nn.Parameter(torch.zeros(ndv//2))
+        self.sfac_dec = nn.Parameter(torch.zeros(ndv//2))
+    def forward(self, x, sample=False):
+        x0, x1 = x.chunk(2, dim=-1)
+        if not sample:
+            s_fac_enc = self.sfac_enc.exp().view(1, 1, -1)
+            s_fac_dec = self.sfac_dec.exp().view(1, 1, -1)
+            st = self.encode(x0)
+            s, t = st.chunk(2, dim=-1)
+            s = torch.tanh(s/s_fac_enc) * s_fac_enc
+            x1 = torch.exp(s) * x1 + t
+            ldj = s.sum(dim=(0, 2))
+            st = self.decode(x1)
+            s, t = st.chunk(2, dim=-1)
+            s = torch.tanh(s/s_fac_dec) * s_fac_dec
+            x0 = x0 * torch.exp(s) + t
+            ldj += s.sum(dim=(0, 2))
+        else:
+            s_fac_dec = self.sfac_dec.exp().view(1, 1, -1)
+            s_fac_enc = self.sfac_enc.exp().view(1, 1, -1)
+            st = self.decode(x1)
+            s, t = st.chunk(2, dim=-1)
+            s = torch.tanh(s/s_fac_dec) * s_fac_dec
+            x0 = torch.exp(-s) * (x0 - t)
+            ldj = - s.sum(dim=(0, 2))
+            st = self.encode(x0)
+            s, t = st.chunk(2, dim=-1)
+            s = torch.tanh(s/s_fac_enc) * s_fac_enc
+            x1 = torch.exp(-s) * (x1 - t)
+            ldj -= s.sum(dim=(0, 2))
+        return torch.cat([x0, x1], dim=-1), ldj

@@ -19,7 +19,7 @@ class ConfigManager:
         with open(self.filepath, 'r') as file:
             self.config = yaml.safe_load(file)
         self.dataset = None
-        self.dataset_choices = {'mnist':load_mnist, 'cifar10':load_cifar, 'neurop_32':None}
+        self.dataset_choices = {'mnist':load_mnist, 'cifar10':load_cifar, 'darcy':load_darcy}
     def get_model(self):
     # try:
         constructor = eval(self.config['model']['name'])
@@ -28,6 +28,16 @@ class ConfigManager:
         model = constructor(**self.config['model']['details'][self.config['model']['name']])
         if self.config['train']['load_path'] is not None:
             model = load_model(model, self.config['train']['load_path'])
+        return model
+    def get_model_sr(self):
+        if self.config['model']['name_sr'] is None:
+            return None
+        constructor = eval(self.config['model']['name_sr'])
+        # except:
+        #     raise Exception('Invalid model choice')
+        model = constructor(**self.config['model']['details'][self.config['model']['name_sr']])
+        if self.config['train']['load_path_sr'] is not None:
+            model = load_model(model, self.config['train']['load_path_sr'])
         return model
     def get_data(self):
         assert self.config['data']['dataset'] in self.dataset_choices, "Invalid dataset choice"
@@ -38,14 +48,15 @@ class Trainer:
     def __init__(self, config_manager) -> None:
         self.cm = config_manager
         self.is_gan = self.cm.config['model']['is_gan']
+        self.model = self.cm.get_model().to('cuda')
+        self.model_sr = self.cm.get_model_sr()
     def train(self):
-
+        model_name = self.cm.config['model']['name']
         def print_reserved_memory():
             reserved_memory = torch.cuda.memory_reserved()
             print(f"Reserved memory: {reserved_memory} bytes")
 
         print_reserved_memory()
-        self.model = self.cm.get_model().to('cuda')
         total_params = sum(p.numel() for p in self.model.parameters())
         print(f"Total number of parameters: {total_params}")
         epochs = self.cm.config['train']['epochs']
@@ -54,6 +65,10 @@ class Trainer:
         test_freq = self.cm.config['train']['test_freq']
         save_path = self.cm.config['train']['save_path']
         test_path = self.cm.config['train']['test_path']
+        if self.cm.config['data']['upper'] is None and self.cm.config['data']['lower'] is None:
+            clip_range = None
+        else:
+            clip_range = (self.cm.config['data']['lower'], self.cm.config['data']['upper'])
         train_set, test_set = self.load_dataset()
         test_lowest = self.cm.config['train']['test_lowest_resolution']
         test_resolutions = self.cm.config['train']['test_resolutions']
@@ -112,7 +127,10 @@ class Trainer:
                 else:
                     torch.save(self.model.state_dict(), save_path+f"{self.cm.config['train']['save_name']}_epoch_{i}.pth")
             if i % test_freq == 0:
-                sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=(0, 255), test_set=test_set)
+                if 'context_num' in self.cm.config['model']['details'][model_name]:
+                    sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=clip_range, test_set=test_set, num_context=self.cm.config['model']['details'][model_name]['context_num'])
+                else:
+                    sample_grid(self.model, test_lowest, test_resolutions, test_path+f"{self.cm.config['model']['name']}_epoch_{i}.png", clip_range=clip_range)
         if self.is_gan:
             plt.clf()
             plt.plot(loss_curve_G, label="Generator")
@@ -125,7 +143,30 @@ class Trainer:
             plt.plot(loss_curve)
             plt.yscale('symlog')
             plt.savefig(save_path+f"{self.cm.config['model']['name']}_loss_curve.png")
-            
+    def sample(self, num_samples, resolution, device, num_context=4, sample_mean=False):
+        model_name = self.cm.config['model']['name']
+        def print_reserved_memory():
+            reserved_memory = torch.cuda.memory_reserved()
+            print(f"Reserved memory: {reserved_memory} bytes")
+
+        print_reserved_memory()
+        self.model = self.cm.get_model().to(device)
+        total_params = sum(p.numel() for p in self.model.parameters())
+        print(f"Total number of parameters: {total_params}")
+        epochs = self.cm.config['train']['epochs']
+        lr = self.cm.config['train']['lr']
+        save_freq = self.cm.config['train']['save_freq']
+        test_freq = self.cm.config['train']['test_freq']
+        save_path = self.cm.config['train']['save_path']
+        test_path = self.cm.config['train']['test_path']
+        train_set, test_set = self.load_dataset()
+        test_lowest = self.cm.config['train']['test_lowest_resolution']
+        test_resolutions = self.cm.config['train']['test_resolutions']
+        if self.cm.config['data']['upper'] is None and self.cm.config['data']['lower'] is None:
+            clip_range = None
+        else:
+            clip_range = (self.cm.config['data']['lower'], self.cm.config['data']['upper'])
+        sample_grid(self.model, test_lowest, test_resolutions, None, device=device, clip_range=clip_range, test_set=test_set, sample_mean=sample_mean, num_context=num_context)
     def format_loss(self, loss, j):
         if self.cm.config['model']['loss_unit'] == "bpd":
             nom_loss = loss.item()*log2(exp(1)) / (np.prod(j.shape[-2:]) * j.shape[0])
